@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MDBox · Markdown 知识库</title>
+<link rel="icon" type="image/png" href="/mdbox.png">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- 登录视图 -->
+<section id="view-login" class="login-wrap" hidden>
+  <form id="login-form" class="login-card">
+    <div class="login-brand"><img class="logo logo-login" src="/mdbox.png" alt="MDBox">MDBox</div>
+    <p class="login-tip">请登录后使用</p>
+    <input id="login-user" placeholder="用户名" autocomplete="username">
+    <input id="login-pass" type="password" placeholder="密码" autocomplete="current-password">
+    <button class="primary" type="submit">登录</button>
+    <div id="login-msg" class="login-msg"></div>
+  </form>
+</section>
+
+<!-- 分享视图（匿名只读） -->
+<section id="view-share" class="share-wrap" hidden>
+  <header class="topbar">
+    <div class="brand"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox</div>
+    <span class="share-brand-tip">只读分享</span>
+    <div class="spacer"></div>
+    <button id="share-theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题">
+      <span id="share-theme-icon">◐</span>
+    </button>
+    <div class="dropdown">
+      <button id="share-download" class="ghost">下载 ▾</button>
+      <div id="share-download-menu" class="dropdown-menu" hidden>
+        <button id="share-dl-md">下载 Markdown (.md)</button>
+        <button id="share-dl-pdf">导出 PDF (.pdf)</button>
+      </div>
+    </div>
+  </header>
+  <div class="share-body">
+    <div class="share-inner">
+      <article id="share-content" class="markdown"></article>
+    </div>
+  </div>
+</section>
+
+<!-- 主应用 -->
+<div id="app" hidden>
+  <header class="topbar">
+    <div class="brand"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox</div>
+    <div class="spacer"></div>
+    <button id="mcp-btn" class="icon-btn" title="MCP 接入" aria-label="MCP 接入">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v5"/><path d="M12 17v5"/><path d="M4.9 4.9l3.5 3.5"/><path d="M15.6 15.6l3.5 3.5"/>
+        <path d="M2 12h5"/><path d="M17 12h5"/><path d="M4.9 19.1l3.5-3.5"/><path d="M15.6 8.4l3.5-3.5"/>
+        <circle cx="12" cy="12" r="3"/>
+      </svg>
+    </button>
+    <button id="theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题">
+      <span id="theme-icon">◐</span>
+    </button>
+    <div class="user">
+      <span class="avatar" id="user-avatar">A</span>
+      <span id="user-name" class="user-name">admin</span>
+      <button id="logout-btn" class="ghost">退出</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="side-section">
+        <div class="side-title">分类</div>
+        <ul id="side-categories" class="side-list"></ul>
+      </div>
+      <div class="side-section">
+        <div class="side-title">标签</div>
+        <ul id="side-tags" class="side-list"></ul>
+      </div>
+      <div class="side-section">
+        <div class="side-title">归档</div>
+        <ul class="side-list">
+          <li id="side-archived" class="side-item" data-kind="archived">已归档文档</li>
+        </ul>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- 列表视图 -->
+      <section id="view-list">
+        <div class="listbar">
+          <input id="search" class="search" type="search" placeholder="搜索标题、标签、正文…" autocomplete="off">
+          <button id="btn-new" class="primary">新建</button>
+          <button id="btn-upload">上传 .md</button>
+          <input type="file" id="file-input" multiple accept=".md,.markdown,.txt" hidden>
+        </div>
+        <div id="list-head" class="list-head"></div>
+        <div id="list" class="list"></div>
+        <div id="empty" class="empty" hidden>还没有文档。点「新建」写一篇，或把 .md 文件拖进这里。</div>
+      </section>
+
+      <!-- 文档视图 -->
+      <section id="view-doc" hidden>
+        <!-- 预览模式工具条 -->
+        <div id="preview-bar" class="docbar">
+          <button id="p-back" class="ghost">返回</button>
+          <span id="p-title" class="doc-title"></span>
+          <span class="spacer"></span>
+          <span id="p-msg" class="msg"></span>
+          <button id="p-share" class="ghost">分享</button>
+          <div class="dropdown">
+            <button id="p-download" class="ghost">下载 ▾</button>
+            <div id="download-menu" class="dropdown-menu" hidden>
+              <button id="dl-md">下载 Markdown (.md)</button>
+              <button id="dl-pdf">导出 PDF (.pdf)</button>
+            </div>
+          </div>
+          <button id="p-edit" class="primary">编辑</button>
+        </div>
+
+        <!-- 编辑模式工具条 -->
+        <div id="edit-bar" class="docbar" hidden>
+          <button id="e-cancel" class="ghost">取消</button>
+          <input id="e-title" class="title-input" placeholder="标题">
+          <input id="e-category" class="meta-input" placeholder="分类">
+          <input id="e-tags" class="meta-input" placeholder="标签，逗号分隔">
+          <span class="spacer"></span>
+          <span id="e-msg" class="msg"></span>
+          <button id="e-archive" class="ghost">归档</button>
+          <button id="e-save" class="primary">保存</button>
+        </div>
+
+        <div id="pane-preview" class="pane-preview">
+          <article id="d-preview" class="markdown"></article>
+        </div>
+        <div id="pane-edit" class="panes" hidden>
+          <textarea id="d-source" class="source" spellcheck="false" placeholder="在这里写 Markdown…"></textarea>
+          <div id="e-preview" class="preview markdown"></div>
+        </div>
+        <div id="doc-foot" class="detailfoot"><span id="d-meta" class="meta"></span></div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- MCP 接入弹窗 -->
+<div id="modal-mcp" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><span>MCP 接入</span><button class="modal-close" data-close="modal-mcp">×</button></div>
+    <div class="modal-body">
+      <p class="modal-tip">mdbox 内置 MCP 服务器，把下面配置加入任意支持 MCP 的 agent 即可读写知识库。</p>
+      <div class="code-label">HTTP（远程 agent，需设置 MDBOX_TOKEN）</div>
+      <pre class="code-block" id="mcp-http"></pre>
+      <button class="copy-btn" data-copy="mcp-http">复制</button>
+      <div class="code-label">stdio（本机 agent 直连）</div>
+      <pre class="code-block" id="mcp-stdio"></pre>
+      <button class="copy-btn" data-copy="mcp-stdio">复制</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分享弹窗 -->
+<div id="modal-share" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><span>分享文档</span><button class="modal-close" data-close="modal-share">×</button></div>
+    <div class="modal-body">
+      <label class="switch-row">
+        <input type="checkbox" id="share-toggle">
+        <span>开启分享：任何人凭链接可只读查看，无需登录，且无法编辑</span>
+      </label>
+      <div id="share-link-wrap" hidden>
+        <div class="code-label">分享链接（固定地址，可随时关闭）</div>
+        <div class="share-copy">
+          <input id="share-link" class="share-link" readonly>
+          <button class="copy-btn" data-copy-input="share-link">复制</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 通用确认/提示对话框（替代原生 confirm/alert） -->
+<div id="modal-dialog" class="modal" hidden>
+  <div class="modal-card dlg-card">
+    <div class="modal-head"><span id="dlg-title">提示</span><button class="modal-close" data-close="modal-dialog">×</button></div>
+    <div class="modal-body">
+      <p id="dlg-msg" class="dlg-msg"></p>
+      <div class="dlg-actions">
+        <button id="dlg-cancel" class="ghost">取消</button>
+        <button id="dlg-ok" class="primary">确定</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/html2pdf.bundle.min.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# mdbox 配置模板：复制为 config.yaml 后按需修改。
+# 首次启动若 config.yaml 不存在，程序会自动生成一份（含默认管理员）。
+admin:
+  username: admin
+  password: "mdbox@111!!!"
+# 分享链接签名密钥。留空则启动时自动生成；修改后所有已分享链接立即失效。
+secret: ""
+# agent/脚本访问 /api 与 /mcp 的共享令牌（Bearer）。留空则启动时自动生成。
+# 也可用 -token 参数或 MDBOX_TOKEN 环境变量临时覆盖。
+token: ""

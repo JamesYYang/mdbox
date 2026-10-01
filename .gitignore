@@ -1,0 +1,8 @@
+mdbox
+mdbox.exe
+/data/
+/config.yaml
+*.log
+
+# 抠图前的原始 logo 备份（本地用，不进仓库）
+/mdbox.source.png
