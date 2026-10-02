@@ -314,6 +314,7 @@ git commit -m "feat(web): 窄屏顶栏加入抽屉开关，侧栏改为可唤出
 ```css
   /* —— 抽屉底部账号区（桌面端隐藏）—— */
   .side-foot {
+    display: block;
     position: sticky; bottom: 0;
     margin: 12px -8px 0;
     padding: 8px 8px 8px;
@@ -327,6 +328,8 @@ git commit -m "feat(web): 窄屏顶栏加入抽屉开关，侧栏改为可唤出
   .side-foot-btn { display: block; width: 100%; text-align: left; margin-bottom: 6px; }
 ```
 
+> **`display: block` 不能漏。** Task 1 已经在基础区加了 `.side-foot { display: none }`（为了让桌面端隐藏它），这条窄屏规则必须显式把它打开，否则账号区在手机上也永远不显示。`.side-toggle` / `.side-backdrop` 同理，都在各自的窄屏规则里显式设了 `display`。
+>
 > `.side-foot` 用 `position: sticky; bottom: 0` 固定在抽屉底部，这样分类/标签再长也不会把账号区挤出屏幕；负 `margin` 让上边框铺满抽屉宽度。
 
 - [ ] **Step 3: 抽出 `doLogout` 与 `renderUser`**
@@ -369,21 +372,26 @@ git commit -m "feat(web): 窄屏顶栏加入抽屉开关，侧栏改为可唤出
 
 - [ ] **Step 4: 绑定两组按钮**
 
-把 `bindEvents()` 里这三行：
+**注意：这几行在文件里并不相邻**（`$('mcp-reset')` 和 `$('pwd-form')` 的绑定夹在中间），所以要分两处改，不要试图整块替换：
+
+一、把 `$('logout-btn')` 的绑定换成具名函数（其余绑定行保持原位不动）：
 
 ```js
-    $('mcp-btn').addEventListener('click', openMcp);
-    $('pwd-btn').addEventListener('click', openPwd);
-    $('logout-btn').addEventListener('click', function () {
-      api('/api/logout', { method: 'POST', noAuthRedirect: true }).catch(function () {}).then(showLogin);
-    });
+    $('logout-btn').addEventListener('click', doLogout);
+    // 窄屏：同样的操作放在抽屉底部，先收起抽屉再动作，避免弹窗盖在打开的抽屉上
+    $('side-mcp').addEventListener('click', function () { closeNav(); openMcp(); });
+    $('side-pwd').addEventListener('click', function () { closeNav(); openPwd(); });
+    $('side-logout').addEventListener('click', function () { closeNav(); doLogout(); });
 ```
 
-替换为：
+改完后 `bindEvents()` 里这一段的顺序应是：
 
 ```js
+    $('theme-btn').addEventListener('click', toggleTheme);
     $('mcp-btn').addEventListener('click', openMcp);
+    $('mcp-reset').addEventListener('click', resetMcpToken);
     $('pwd-btn').addEventListener('click', openPwd);
+    $('pwd-form').addEventListener('submit', submitPwd);
     $('logout-btn').addEventListener('click', doLogout);
     // 窄屏：同样的操作放在抽屉底部，先收起抽屉再动作，避免弹窗盖在打开的抽屉上
     $('side-mcp').addEventListener('click', function () { closeNav(); openMcp(); });
