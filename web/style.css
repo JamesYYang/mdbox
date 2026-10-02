@@ -316,6 +316,7 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 
   /* —— 抽屉底部账号区（桌面端隐藏）—— */
   .side-foot {
+    display: block;
     position: sticky; bottom: 0;
     margin: 12px -8px 0;
     padding: 8px 8px 8px;
