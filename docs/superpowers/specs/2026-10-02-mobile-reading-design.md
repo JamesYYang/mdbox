@@ -78,7 +78,7 @@
 - 窄屏：`.sidebar` 变为 `position: fixed; top: 54px; bottom: 0; width: min(78vw, 300px); overflow: auto`，默认 `transform: translateX(-100%)`。
 - `body.nav-open` 时：`.sidebar` → `translateX(0)`，同时显示 `#side-backdrop` 并 `body { overflow: hidden }` 锁滚动。
 - 关闭时机：点遮罩、按 Esc、选中任意分类/标签后（`onSideClick` 末尾追加关闭）。
-- **复位**：监听 `matchMedia('(max-width:720px)')` 的 `change` 事件，变宽时移除 `nav-open`，否则桌面端会被锁住滚动。
+- **复位**：不需要。`body.nav-open` 与 `.sidebar` 的相关规则全部写在 `@media (max-width: 720px)` 内部，窗口变宽时自动失效，桌面端不会被锁滚动。仅在 `resetSession()`（退出/切换账号）时移除 `nav-open`。
 
 ### 4. 窄屏隐藏的入口
 

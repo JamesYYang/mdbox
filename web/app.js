@@ -128,6 +128,7 @@
     state.current = null;
     state.dirty = false;
     state.pushed = false;
+    closeNav();
     clearTimeout(previewTimer);
     $('view-list').hidden = false;
     $('view-doc').hidden = true;
@@ -219,6 +220,12 @@
 
   /* ---------- 侧边栏 ---------- */
 
+  /* ---------- 移动端侧栏抽屉 ---------- */
+  // 桌面端没有开关按钮，这两个函数只会被窄屏 UI 调用。
+  // 相关 CSS 全部写在 @media (max-width:720px) 内，所以不需要在窗口变宽时额外复位。
+  function openNav() { document.body.classList.add('nav-open'); }
+  function closeNav() { document.body.classList.remove('nav-open'); }
+
   function loadSidebar() {
     Promise.all([api('/api/categories'), api('/api/tags')]).then(function (res) {
       renderSidebar(res[0].categories || {}, res[1].tags || {});
@@ -274,6 +281,7 @@
     if (kind === 'all') { state.category = ''; state.tag = ''; state.status = 'active'; }
     else if (kind === 'category') { state.category = (state.category === v ? '' : v); state.tag = ''; state.status = 'active'; }
     else if (kind === 'tag') { state.tag = (state.tag === v ? '' : v); state.category = ''; state.status = 'active'; }
+    closeNav();
     refresh();
   }
 
@@ -677,6 +685,10 @@
 
   function bindEvents() {
     bindDialog();
+    $('side-toggle').addEventListener('click', function () {
+      if (document.body.classList.contains('nav-open')) { closeNav(); } else { openNav(); }
+    });
+    $('side-backdrop').addEventListener('click', closeNav);
     $('theme-btn').addEventListener('click', toggleTheme);
     $('mcp-btn').addEventListener('click', openMcp);
     $('mcp-reset').addEventListener('click', resetMcpToken);
@@ -690,6 +702,7 @@
     $('side-tags').addEventListener('click', onSideClick);
     $('side-archived').addEventListener('click', function () {
       state.status = 'archived'; state.category = ''; state.tag = '';
+      closeNav();
       refresh();
     });
 
@@ -757,7 +770,11 @@
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
         if (!$('modal-dialog').hidden) { closeDialog(false); return; }
-        ['modal-mcp', 'modal-share'].forEach(function (id) { $(id).hidden = true; });
+        var modalIds = ['modal-mcp', 'modal-share'];
+        var openModalId = modalIds.filter(function (id) { return !$(id).hidden; })[0];
+        if (openModalId) { $(openModalId).hidden = true; return; }
+        closeNav();
+        return;
       }
       if (e.key === 'Enter' && !$('modal-dialog').hidden) { closeDialog(true); return; }
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {

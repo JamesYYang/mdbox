@@ -276,9 +276,39 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 .markdown hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
 .markdown a { color: var(--accent); }
 
-/* ---------- 窄屏 ---------- */
+/* ---------- 窄屏 / 移动端 ---------- */
+/* 这三个元素只在窄屏出现，桌面端一律隐藏 */
+.side-toggle, .side-backdrop, .side-foot { display: none; }
+
 @media (max-width: 720px) {
-  .sidebar { width: 170px; }
+  /* —— 顶栏：☰ MDBox … ☾ —— */
+  .topbar { height: 54px; padding: 0 12px; gap: 6px; }
+  .side-toggle { display: inline-flex; }
+  .user-name, #pwd-btn, #logout-btn, #mcp-btn { display: none; }
+
+  /* —— 侧栏 → 左侧抽屉 —— */
+  .sidebar {
+    position: fixed; z-index: 40;
+    left: 0; top: 54px; bottom: 0;
+    width: min(78vw, 300px);
+    padding: 12px 8px 0;
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    box-shadow: 0 0 24px rgba(0, 0, 0, .18);
+  }
+  body.nav-open .sidebar { transform: translateX(0); }
+  /* 锁滚动。规则写在媒体查询内，桌面端天然不受影响 */
+  body.nav-open { overflow: hidden; }
+
+  .side-backdrop {
+    display: block; position: fixed; inset: 54px 0 0 0; z-index: 39;
+    background: rgba(0, 0, 0, .4);
+    opacity: 0; pointer-events: none;
+    transition: opacity .22s ease;
+  }
+  body.nav-open .side-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* —— 编辑相关：编辑不可达，以下规则仅为「万一面板被恢复」兜底 —— */
   .panes { flex-direction: column; }
   .source { border-right: none; border-bottom: 1px solid var(--border); min-height: 40vh; }
   .preview { min-height: 40vh; }
