@@ -349,6 +349,28 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
   .docbar .msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* 编辑条在窄屏不可达，保留换行兜底 */
   #edit-bar { flex-wrap: wrap; }
+
+  /* —— 正文阅读排版 —— */
+  /* 注意：这里的选择器是「阅读容器」而不是裸 .markdown。
+     原因是 .pdf-export 的包裹层也带 markdown 类（见 web/style.css 末尾），
+     若写成 .markdown 会连带影响手机端导出 PDF —— 尤其 table 会被加上
+     display:block + overflow-x:auto，html2canvas 会按容器边缘裁切，正好
+     重新引入 web/CODEBUDDY.md 里明确警告过的「右侧被静默裁掉」问题。 */
+  .pane-preview .markdown, .preview, .share-inner .markdown { font-size: 16px; line-height: 1.75; }
+  .pane-preview { padding: 16px 14px; }
+  .preview { padding: 14px; }
+
+  .pane-preview pre, .preview pre, .share-inner pre { padding: 12px; border-radius: 8px; }
+  .pane-preview blockquote, .preview blockquote, .share-inner blockquote { padding: 2px 10px; }
+
+  /* 宽表格在正文容器内横向滚动，不再把页面撑宽。
+     多列时靠内在最小宽度触发滚动；少列长文本仍照常换行。 */
+  .pane-preview table, .preview table, .share-inner table {
+    display: block; overflow-x: auto; max-width: 100%;
+  }
+  .pane-preview th, .pane-preview td,
+  .preview th, .preview td,
+  .share-inner th, .share-inner td { padding: 6px 8px; }
 }
 
 /* PDF 导出时临时包裹层 */
