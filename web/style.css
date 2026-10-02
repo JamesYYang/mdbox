@@ -68,18 +68,27 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
   min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
   background: var(--bg); padding: 20px;
 }
+.login-panel {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; align-items: center;
+  width: 100%; max-width: 780px;
+}
+.login-promo { min-width: 0; }
+.login-promo-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 24px; font-weight: 700; letter-spacing: .5px;
+}
+.login-promo-lead { margin: 10px 0 16px; color: var(--muted); font-size: 14px; }
+.login-promo-list { margin: 0 0 16px; padding-left: 18px; font-size: 14px; line-height: 1.9; }
+.login-promo-mcp { margin: 0; color: var(--accent); font-size: 13px; }
 .login-card {
   width: 320px; display: flex; flex-direction: column; gap: 12px;
   padding: 28px 26px; border: 1px solid var(--border); border-radius: 14px;
   background: var(--surface);
 }
-.login-brand {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  font-size: 24px; font-weight: 700; letter-spacing: .5px; text-align: center;
-}
 .login-tip { margin: 0 0 6px; text-align: center; color: var(--muted); font-size: 13px; }
 .pwd-form { display: flex; flex-direction: column; gap: 12px; }
 .login-msg { min-height: 18px; font-size: 13px; color: var(--danger); text-align: center; }
+.brand-slogan { font-size: 13px; font-weight: 400; color: var(--muted); letter-spacing: 0; }
 
 /* ---------- 顶栏 ---------- */
 #app { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
@@ -398,7 +407,8 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 
   /* —— 登录页 —— */
   .login-wrap { padding: 16px; }
-  .login-card { width: 100%; max-width: 340px; padding: 22px 18px; }
+  .login-panel { grid-template-columns: 1fr; gap: 20px; max-width: 340px; }
+  .login-card { width: 100%; padding: 22px 18px; }
 
   /* 窄屏空列表提示：隐藏含「新建 / 拖入」的桌面说法，只留可行提示 */
   .empty-wide { display: none; }
