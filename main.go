@@ -11,14 +11,19 @@
 package main
 
 import (
+	"compress/gzip"
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"flag"
 	"io/fs"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -102,7 +107,7 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
-	mux.Handle("/", http.FileServer(http.FS(webRoot)))
+	mux.Handle("/", staticFiles(webRoot))
 
 	srv := &http.Server{Addr: *addr, Handler: mux}
 	go func() {
@@ -160,4 +165,95 @@ func fsPath(p string) (string, error) {
 		return "", err
 	}
 	return wd + "/" + p, nil
+}
+
+// staticFiles 提供内嵌的 web/ 静态资源：gzip 压缩 + 基于 ETag 的协商缓存。
+// 浏览器里唯一的大文件 html2pdf 已改为按需加载，这里再兜住传输体积与重复下载：
+// 文本资源经 gzip 通常只剩约 1/4，重复访问走 304 不再重传。
+func staticFiles(root fs.FS) http.Handler {
+	etags := map[string]string{}
+	_ = fs.WalkDir(root, ".", func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		b, err := fs.ReadFile(root, p)
+		if err != nil {
+			return nil
+		}
+		sum := sha256.Sum256(b)
+		etags["/"+p] = `"` + hex.EncodeToString(sum[:16]) + `"`
+		return nil
+	})
+
+	fileServer := http.FileServer(http.FS(root))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		p := r.URL.Path
+		comp := compressible(p)
+		if comp {
+			w.Header().Add("Vary", "Accept-Encoding")
+		}
+		// 首页（"/"，以及会被 301 到 "/" 的显式 /index.html）不参与协商缓存，交给 FileServer。
+		if p != "/" && p != "/index.html" {
+			if et, ok := etags[p]; ok {
+				w.Header().Set("ETag", et)
+				w.Header().Set("Cache-Control", "no-cache")
+				if r.Header.Get("If-None-Match") == et {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+			}
+		}
+		if !comp || r.Method != http.MethodGet || r.Header.Get("Range") != "" ||
+			!strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			fileServer.ServeHTTP(w, r)
+			return
+		}
+		gz := gzip.NewWriter(w)
+		gw := &gzipWriter{ResponseWriter: w, gz: gz}
+		fileServer.ServeHTTP(gw, r)
+		if gw.compressed {
+			_ = gz.Close()
+		}
+	})
+}
+
+// gzipWriter 仅在响应为 200 时改写为 gzip 输出；其余状态（304/404/301 等）原样透传。
+type gzipWriter struct {
+	http.ResponseWriter
+	gz         *gzip.Writer
+	wroteHead  bool
+	compressed bool
+}
+
+func (g *gzipWriter) WriteHeader(code int) {
+	if g.wroteHead {
+		return
+	}
+	g.wroteHead = true
+	if code == http.StatusOK {
+		g.compressed = true
+		g.Header().Del("Content-Length") // 压缩后长度未知，交给分块编码
+		g.Header().Set("Content-Encoding", "gzip")
+	}
+	g.ResponseWriter.WriteHeader(code)
+}
+
+func (g *gzipWriter) Write(b []byte) (int, error) {
+	if !g.wroteHead {
+		g.WriteHeader(http.StatusOK)
+	}
+	if g.compressed {
+		return g.gz.Write(b)
+	}
+	return g.ResponseWriter.Write(b)
+}
+
+// compressible 判断按扩展名是否值得 gzip（文本类；png 等已压缩格式跳过）。
+func compressible(p string) bool {
+	switch path.Ext(p) {
+	case ".js", ".css", ".html", ".htm", ".svg", ".json", ".txt", ".map", ".xml":
+		return true
+	}
+	return false
 }

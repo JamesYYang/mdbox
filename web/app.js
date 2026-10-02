@@ -491,39 +491,54 @@
       .catch(function (e) { msg('p-msg', e.message, true); });
   }
 
-  // exportPdf 把某个渲染元素的 HTML 导出为 PDF，返回是否已接管。
-  function exportPdf(el, title) {
-    if (typeof window.html2pdf !== 'function') { return false; }
-    var wrap = document.createElement('div');
-    // 同时带上 markdown 类：表格边框、代码、引用等样式才会生效
-    wrap.className = 'pdf-export markdown';
-    wrap.innerHTML = el.innerHTML;
-    document.body.appendChild(wrap);
-    var name = (title || 'doc').replace(/[\\/:*?"<>|]/g, '_');
-    window.html2pdf().set({
-      margin: [10, 10, 10, 10],
-      filename: name + '.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      // 避免整块内容被分页拦腰切断：css 模式读 break-inside，
-      // legacy 模式按下列选择器把元素整体推到下一页。
-      pagebreak: {
-        mode: ['css', 'legacy'],
-        avoid: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'pre', 'tr', 'img']
-      }
-    }).from(wrap).save().then(onDone, onDone);
+  // 按需加载 html2pdf：首页不再预加载这个 ~900KB 的包，只有点「导出 PDF」时才拉取。
+  var pdfLibPromise = null;
+  function loadPdfLib() {
+    if (typeof window.html2pdf === 'function') { return Promise.resolve(); }
+    if (pdfLibPromise) { return pdfLibPromise; }
+    pdfLibPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '/vendor/html2pdf.bundle.min.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { pdfLibPromise = null; reject(new Error('加载 PDF 组件失败，请检查网络')); };
+      document.head.appendChild(s);
+    });
+    return pdfLibPromise;
+  }
 
-    function onDone() {
-      if (wrap.parentNode) { wrap.parentNode.removeChild(wrap); }
-    }
-    return true;
+  // exportPdf 把某个渲染元素的 HTML 导出为 PDF，返回一个 Promise。
+  function exportPdf(el, title) {
+    return loadPdfLib().then(function () {
+      var wrap = document.createElement('div');
+      // 同时带上 markdown 类：表格边框、代码、引用等样式才会生效
+      wrap.className = 'pdf-export markdown';
+      wrap.innerHTML = el.innerHTML;
+      document.body.appendChild(wrap);
+      var name = (title || 'doc').replace(/[\\/:*?"<>|]/g, '_');
+      function cleanup() {
+        if (wrap.parentNode) { wrap.parentNode.removeChild(wrap); }
+      }
+      return window.html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename: name + '.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        // 避免整块内容被分页拦腰切断：css 模式读 break-inside，
+        // legacy 模式按下列选择器把元素整体推到下一页。
+        pagebreak: {
+          mode: ['css', 'legacy'],
+          avoid: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'pre', 'tr', 'img']
+        }
+      }).from(wrap).save().then(cleanup, function (e) { cleanup(); throw e; });
+    });
   }
 
   function downloadPdf() {
     if (!state.current) { return; }
-    if (!exportPdf($('d-preview'), state.current.title)) { msg('p-msg', 'PDF 组件未加载', true); return; }
     msg('p-msg', '正在生成 PDF…');
+    exportPdf($('d-preview'), state.current.title)
+      .catch(function (e) { msg('p-msg', e.message, true); });
   }
 
   /* ---------- 分享 ---------- */
@@ -896,7 +911,7 @@
   }
 
   function shareDownloadPdf() {
-    exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc');
+    exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function () {});
   }
 
   /* ---------- 启动 ---------- */
