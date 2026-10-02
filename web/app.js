@@ -154,10 +154,18 @@
     if (u) { u.focus(); }
   }
 
+  // renderUser 同时刷新顶栏与抽屉底部的用户名/头像
+  function renderUser(user) {
+    var initial = (user || 'A').charAt(0);
+    $('user-name').textContent = user;
+    $('user-avatar').textContent = initial;
+    $('side-user-name').textContent = user;
+    $('side-avatar').textContent = initial;
+  }
+
   function enterApp(user) {
     state.user = user;
-    $('user-name').textContent = user;
-    $('user-avatar').textContent = (user || 'A').charAt(0);
+    renderUser(user);
     showView('app');
     loadSidebar();
     if (hashDocId()) { route(); } else { loadList(); }
@@ -665,6 +673,10 @@
     }).catch(function (err) { msg('pwd-msg', err.message || '修改失败', true); });
   }
 
+  function doLogout() {
+    api('/api/logout', { method: 'POST', noAuthRedirect: true }).catch(function () {}).then(showLogin);
+  }
+
   /* ---------- 上传 ---------- */
 
   function uploadFiles(files) {
@@ -694,9 +706,11 @@
     $('mcp-reset').addEventListener('click', resetMcpToken);
     $('pwd-btn').addEventListener('click', openPwd);
     $('pwd-form').addEventListener('submit', submitPwd);
-    $('logout-btn').addEventListener('click', function () {
-      api('/api/logout', { method: 'POST', noAuthRedirect: true }).catch(function () {}).then(showLogin);
-    });
+    $('logout-btn').addEventListener('click', doLogout);
+    // 窄屏：同样的操作放在抽屉底部，先收起抽屉再动作，避免弹窗盖在打开的抽屉上
+    $('side-mcp').addEventListener('click', function () { closeNav(); openMcp(); });
+    $('side-pwd').addEventListener('click', function () { closeNav(); openPwd(); });
+    $('side-logout').addEventListener('click', function () { closeNav(); doLogout(); });
 
     $('side-categories').addEventListener('click', onSideClick);
     $('side-tags').addEventListener('click', onSideClick);

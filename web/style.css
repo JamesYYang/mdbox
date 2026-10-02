@@ -313,6 +313,20 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
   .source { border-right: none; border-bottom: 1px solid var(--border); min-height: 40vh; }
   .preview { min-height: 40vh; }
   .meta-input { width: 110px; }
+
+  /* —— 抽屉底部账号区（桌面端隐藏）—— */
+  .side-foot {
+    position: sticky; bottom: 0;
+    margin: 12px -8px 0;
+    padding: 8px 8px 8px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  .side-foot-user {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 8px 10px; font-size: 14px; color: var(--text);
+  }
+  .side-foot-btn { display: block; width: 100%; text-align: left; margin-bottom: 6px; }
 }
 
 /* PDF 导出时临时包裹层 */
