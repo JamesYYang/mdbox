@@ -2,10 +2,6 @@
 package api
 
 import (
-	"crypto/hmac"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,208 +10,9 @@ import (
 	"net/url"
 	"strings"
 
-	"mdbox/internal/auth"
-	"mdbox/internal/config"
 	"mdbox/internal/render"
 	"mdbox/internal/store"
 )
-
-// Server 暴露 REST API。
-type Server struct {
-	st       *store.Store
-	cfg      *config.Config
-	sessions *auth.Sessions
-	token    string
-}
-
-// New 返回挂载好路由的 http.Handler。
-//
-// 鉴权分两套：Web 端用登录会话（Cookie），agent/脚本用共享 token。
-// token 为空表示不校验共享 token，但 Web 仍需要登录。
-func New(st *store.Store, cfg *config.Config, sessions *auth.Sessions, token string) http.Handler {
-	s := &Server{st: st, cfg: cfg, sessions: sessions, token: token}
-	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/login", s.login)
-	mux.HandleFunc("POST /api/logout", s.logout)
-	mux.HandleFunc("GET /api/me", s.me)
-	mux.HandleFunc("GET /api/health", s.health)
-	mux.HandleFunc("GET /api/docs", s.listDocs)
-	mux.HandleFunc("POST /api/docs", s.createDoc)
-	mux.HandleFunc("GET /api/docs/{id}", s.getDoc)
-	mux.HandleFunc("PUT /api/docs/{id}", s.updateDoc)
-	mux.HandleFunc("DELETE /api/docs/{id}", s.deleteDoc)
-	mux.HandleFunc("POST /api/docs/{id}/archive", s.archiveDoc)
-	mux.HandleFunc("POST /api/docs/{id}/share", s.shareDoc)
-	mux.HandleFunc("GET /api/docs/{id}/download", s.downloadDoc)
-	mux.HandleFunc("GET /api/share/{id}/{token}", s.publicDoc)
-	mux.HandleFunc("GET /api/share/{id}/{token}/download", s.publicDownload)
-	mux.HandleFunc("GET /api/tags", s.tags)
-	mux.HandleFunc("GET /api/categories", s.categories)
-	mux.HandleFunc("POST /api/upload", s.upload)
-	mux.HandleFunc("POST /api/preview", s.preview)
-	return s.withAuth(mux)
-}
-
-// publicPath 判断某路径是否无需登录：登录/登出接口、公开分享读取。
-func publicPath(p string) bool {
-	switch p {
-	case "/api/login", "/api/logout":
-		return true
-	}
-	return strings.HasPrefix(p, "/api/share/")
-}
-
-func (s *Server) withAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if publicPath(r.URL.Path) {
-			next.ServeHTTP(w, r)
-			return
-		}
-		// 1) 登录会话（Web）
-		if c, err := r.Cookie(auth.CookieName); err == nil {
-			if _, ok := s.sessions.Valid(c.Value); ok {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-		// 2) 共享 token（agent / curl）
-		if s.token != "" {
-			got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if got == "" {
-				got = r.URL.Query().Get("token")
-			}
-			if subtle.ConstantTimeCompare([]byte(got), []byte(s.token)) == 1 {
-				next.ServeHTTP(w, r)
-				return
-			}
-		}
-		writeErr(w, http.StatusUnauthorized, "unauthorized")
-	})
-}
-
-/* ---------- 登录 ---------- */
-
-func (s *Server) login(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
-		return
-	}
-	if subtle.ConstantTimeCompare([]byte(in.Username), []byte(s.cfg.Admin.Username)) != 1 ||
-		subtle.ConstantTimeCompare([]byte(in.Password), []byte(s.cfg.Admin.Password)) != 1 {
-		writeErr(w, http.StatusUnauthorized, "用户名或密码错误")
-		return
-	}
-	tok := s.sessions.Create(in.Username)
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.CookieName,
-		Value:    tok,
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(auth.TTL.Seconds()),
-	})
-	writeJSON(w, http.StatusOK, map[string]any{"user": in.Username})
-}
-
-func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
-	if c, err := r.Cookie(auth.CookieName); err == nil {
-		s.sessions.Delete(c.Value)
-	}
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.CookieName,
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-	})
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
-}
-
-func (s *Server) me(w http.ResponseWriter, r *http.Request) {
-	if c, err := r.Cookie(auth.CookieName); err == nil {
-		if user, ok := s.sessions.Valid(c.Value); ok {
-			writeJSON(w, http.StatusOK, map[string]any{"user": user})
-			return
-		}
-	}
-	// 走到这里说明是通过共享 token 通过鉴权的（无会话），视为管理员。
-	writeJSON(w, http.StatusOK, map[string]any{"user": s.cfg.Admin.Username})
-}
-
-/* ---------- 分享 ---------- */
-
-// shareSig 用固定算法为文档 id 生成分享签名，同一 id 永远得到同一签名。
-func (s *Server) shareSig(id string) string {
-	mac := hmac.New(sha256.New, []byte(s.cfg.Secret))
-	mac.Write([]byte(id))
-	return hex.EncodeToString(mac.Sum(nil))[:24]
-}
-
-// shareURL 返回文档的分享路径（不含域名）。
-func (s *Server) shareURL(id string) string {
-	return "/s/" + id + "/" + s.shareSig(id)
-}
-
-func (s *Server) validSig(id, got string) bool {
-	return hmac.Equal([]byte(got), []byte(s.shareSig(id)))
-}
-
-func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
-	var in struct {
-		Shared bool `json:"shared"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
-		return
-	}
-	id := r.PathValue("id")
-	d, err := s.st.SetShared(id, in.Shared)
-	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
-		return
-	}
-	resp := map[string]any{"shared": d.Shared}
-	if d.Shared {
-		resp["url"] = s.shareURL(id)
-	}
-	writeJSON(w, http.StatusOK, resp)
-}
-
-// publicDoc 是匿名可访问的分享读取接口，只读、不校验登录。
-func (s *Server) publicDoc(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if !s.validSig(id, r.PathValue("token")) {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
-		return
-	}
-	d, err := s.st.Get(id)
-	if err != nil || !d.Shared {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
-		return
-	}
-	html, _ := render.Markdown(d.Content)
-	writeJSON(w, http.StatusOK, map[string]any{"doc": d, "html": html})
-}
-
-// publicDownload 是匿名可访问的分享下载接口，同样只读、不校验登录。
-func (s *Server) publicDownload(w http.ResponseWriter, r *http.Request) {
-	id := r.PathValue("id")
-	if !s.validSig(id, r.PathValue("token")) {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
-		return
-	}
-	d, err := s.st.Get(id)
-	if err != nil || !d.Shared {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
-		return
-	}
-	writeMarkdown(w, d)
-}
 
 /* ---------- 基础 ---------- */
 
@@ -230,7 +27,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "root": s.st.Root()})
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
 func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
@@ -239,7 +36,7 @@ func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
 	if v := q.Get("limit"); v != "" {
 		fmt.Sscanf(v, "%d", &limit)
 	}
-	docs, err := s.st.List(store.ListFilter{
+	docs, err := stOf(r).List(store.ListFilter{
 		Tag:      q.Get("tag"),
 		Category: q.Get("category"),
 		Status:   q.Get("status"),
@@ -254,7 +51,7 @@ func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getDoc(w http.ResponseWriter, r *http.Request) {
-	d, err := s.st.Get(r.PathValue("id"))
+	d, err := stOf(r).Get(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, err.Error())
 		return
@@ -262,7 +59,7 @@ func (s *Server) getDoc(w http.ResponseWriter, r *http.Request) {
 	html, _ := render.Markdown(d.Content)
 	resp := map[string]any{"doc": d, "html": html}
 	if d.Shared {
-		resp["shareUrl"] = s.shareURL(d.ID)
+		resp["shareUrl"] = s.shareURL(userOf(r), d.ID)
 	}
 	writeJSON(w, http.StatusOK, resp)
 }
@@ -281,7 +78,7 @@ func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
 		return
 	}
-	d, err := s.st.Create(store.CreateInput{
+	d, err := stOf(r).Create(store.CreateInput{
 		Title:    in.Title,
 		Content:  in.Content,
 		Tags:     in.Tags,
@@ -306,7 +103,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
 		return
 	}
-	d, err := s.st.Update(r.PathValue("id"), store.UpdateInput{
+	d, err := stOf(r).Update(r.PathValue("id"), store.UpdateInput{
 		Title:    in.Title,
 		Content:  in.Content,
 		Tags:     in.Tags,
@@ -320,7 +117,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) archiveDoc(w http.ResponseWriter, r *http.Request) {
-	d, err := s.st.Archive(r.PathValue("id"))
+	d, err := stOf(r).Archive(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, err.Error())
 		return
@@ -329,7 +126,7 @@ func (s *Server) archiveDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
-	if err := s.st.Delete(r.PathValue("id")); err != nil {
+	if err := stOf(r).Delete(r.PathValue("id")); err != nil {
 		writeErr(w, http.StatusNotFound, err.Error())
 		return
 	}
@@ -337,7 +134,7 @@ func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) downloadDoc(w http.ResponseWriter, r *http.Request) {
-	d, err := s.st.Get(r.PathValue("id"))
+	d, err := stOf(r).Get(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, err.Error())
 		return
@@ -377,11 +174,11 @@ func fallbackName(name string) string {
 }
 
 func (s *Server) tags(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"tags": s.st.Tags()})
+	writeJSON(w, http.StatusOK, map[string]any{"tags": stOf(r).Tags()})
 }
 
 func (s *Server) categories(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"categories": s.st.Categories()})
+	writeJSON(w, http.StatusOK, map[string]any{"categories": stOf(r).Categories()})
 }
 
 // upload 接收 multipart 上传的 .md 文件，可一次多篇。
@@ -393,7 +190,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	created := []*store.Doc{}
 	for _, fh := range r.MultipartForm.File {
 		for _, h := range fh {
-			doc, err := s.saveUpload(h)
+			doc, err := saveUpload(stOf(r), h)
 			if err != nil {
 				writeErr(w, http.StatusInternalServerError, err.Error())
 				return
@@ -404,7 +201,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]any{"docs": created, "total": len(created)})
 }
 
-func (s *Server) saveUpload(h *multipart.FileHeader) (*store.Doc, error) {
+func saveUpload(st *store.Store, h *multipart.FileHeader) (*store.Doc, error) {
 	f, err := h.Open()
 	if err != nil {
 		return nil, err
@@ -415,7 +212,7 @@ func (s *Server) saveUpload(h *multipart.FileHeader) (*store.Doc, error) {
 		return nil, err
 	}
 	// 文件自带 frontmatter 时用其中的 title/tags/category，否则用文件名兜底
-	return s.st.CreateFromRaw(raw, strings.TrimSuffix(h.Filename, ".md"), "upload")
+	return st.CreateFromRaw(raw, strings.TrimSuffix(h.Filename, ".md"), "upload")
 }
 
 func (s *Server) preview(w http.ResponseWriter, r *http.Request) {

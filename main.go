@@ -3,11 +3,12 @@
 // 用法：
 //
 //	mdbox -addr :8080 -data ./data            # 启动 Web + REST + MCP(HTTP)
-//	mdbox -stdio -data ./data                  # 以 MCP stdio 模式运行（本地 agent 直连）
-//	MDBOX_TOKEN=xxx mdbox                      # 临时覆盖 config.yaml 里的 agent 令牌
+//	mdbox -stdio -user alice -data ./data      # 以 MCP stdio 模式为 alice 运行（本地 agent 直连）
 //
 // 首次启动会在 -config 指定的路径（默认 ./config.yaml）生成配置文件，
-// 内含管理员账号（Web 登录用）与 agent 令牌 token（/api、/mcp 用）。
+// 并用其中的 admin 账号在 -users 指定的 users.yaml 里初始化第一个用户。
+// 其他用户可自助注册；每个用户的文档在 {data}/users/{username}/ 下，
+// 并各自拥有一个 MCP/API token（见 users.yaml 或 Web 的「MCP 接入」弹窗）。
 package main
 
 import (
@@ -19,7 +20,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -29,45 +30,55 @@ import (
 	"mdbox/internal/auth"
 	"mdbox/internal/config"
 	mcpsrv "mdbox/internal/mcp"
-	"mdbox/internal/store"
+	"mdbox/internal/users"
 )
 
 //go:embed web
 var webFS embed.FS
 
-const version = "0.2.0"
+const version = "0.3.0"
 
 func main() {
 	addr := flag.String("addr", ":8080", "HTTP 监听地址")
 	dataDir := flag.String("data", "./data", "文档存储目录")
 	configPath := flag.String("config", config.DefaultPath, "配置文件路径")
-	token := flag.String("token", os.Getenv("MDBOX_TOKEN"), "agent/脚本用的访问令牌；留空则用 config.yaml 里的 token")
+	usersPath := flag.String("users", "users.yaml", "用户注册表路径（含密码哈希与 token，不要放进 data/ 备份仓库）")
 	stdioMode := flag.Bool("stdio", false, "以 MCP stdio 模式运行，供本地 agent 直连")
+	stdioUser := flag.String("user", "", "stdio 模式下为哪个用户服务")
 	flag.Parse()
-
-	st, err := store.New(*dataDir)
-	if err != nil {
-		log.Fatalf("打开文档仓库失败: %v", err)
-	}
-
-	mcpServer := mcpsrv.New(st, "mdbox", version)
-
-	if *stdioMode {
-		if err := server.ServeStdio(mcpServer); err != nil && err != context.Canceled {
-			log.Fatalf("stdio 模式异常: %v", err)
-		}
-		return
-	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
-	// 令牌优先级：-token / MDBOX_TOKEN > config.yaml 的 token
-	tok := *token
-	if tok == "" {
-		tok = cfg.Token
+	reg, err := users.Open(*usersPath, *dataDir)
+	if err != nil {
+		log.Fatalf("加载用户表失败: %v", err)
 	}
+	// 用 config.yaml 的 admin 初始化第一个用户；已存在则不动。
+	if err := users.ValidName(cfg.Admin.Username); err != nil {
+		log.Fatalf("config.yaml 的 admin.username 不合法: %v", err)
+	}
+	if err := reg.EnsureUser(cfg.Admin.Username, cfg.Admin.Password); err != nil {
+		log.Fatalf("初始化 %s 失败: %v", cfg.Admin.Username, err)
+	}
+
+	mcps := &mcpServers{reg: reg, m: map[string]*server.MCPServer{}}
+
+	if *stdioMode {
+		if *stdioUser == "" {
+			log.Fatalf("stdio 模式需要用 -user 指定用户")
+		}
+		srv, err := mcps.get(*stdioUser)
+		if err != nil {
+			log.Fatalf("stdio 模式无法为用户 %q 服务: %v", *stdioUser, err)
+		}
+		if err := server.ServeStdio(srv); err != nil && err != context.Canceled {
+			log.Fatalf("stdio 模式异常: %v", err)
+		}
+		return
+	}
+
 	sessions := auth.New()
 
 	webRoot, err := fs.Sub(webFS, "web")
@@ -80,12 +91,22 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/", api.New(st, cfg, sessions, tok))
-	mux.Handle("/mcp", withToken(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		server.NewStreamableHTTPServer(mcpServer).ServeHTTP(w, r)
-	}), tok))
+	mux.Handle("/api/", api.New(reg, cfg, sessions))
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		u, ok := reg.ByToken(api.Bearer(r))
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		srv, err := mcps.get(u.Username)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		server.NewStreamableHTTPServer(srv).ServeHTTP(w, r)
+	})
 	// 分享链接：匿名访问，交给前端按路径进入「分享模式」（只读）。
-	mux.HandleFunc("GET /s/{id}/{sig}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /s/{user}/{id}/{sig}", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
@@ -93,12 +114,8 @@ func main() {
 
 	srv := &http.Server{Addr: *addr, Handler: mux}
 	go func() {
-		log.Printf("mdbox %s 启动于 %s，文档目录 %s，管理员 %s", version, *addr, mustAbs(*dataDir), cfg.Admin.Username)
-		if tok == "" {
-			log.Printf("提示：未设置访问令牌，agent/脚本无法访问 /api 与 /mcp")
-		} else {
-			log.Printf("agent/MCP 令牌已启用（配置见 %s 的 token 字段）", *configPath)
-		}
+		log.Printf("mdbox %s 启动于 %s，文档目录 %s，用户表 %s，开放注册: %v",
+			version, *addr, mustAbs(*dataDir), *usersPath, cfg.RegisterOpen())
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务异常: %v", err)
 		}
@@ -113,22 +130,26 @@ func main() {
 	log.Print("已停止")
 }
 
-func withToken(next http.Handler, token string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if token == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		got := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if got == "" {
-			got = r.URL.Query().Get("token")
-		}
-		if got != token {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
+// mcpServers 按用户缓存 MCP server：每个 server 只绑定该用户自己的文档仓库。
+type mcpServers struct {
+	reg *users.Registry
+	mu  sync.Mutex
+	m   map[string]*server.MCPServer
+}
+
+func (c *mcpServers) get(name string) (*server.MCPServer, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if s, ok := c.m[name]; ok {
+		return s, nil
+	}
+	st, err := c.reg.Store(name)
+	if err != nil {
+		return nil, err
+	}
+	s := mcpsrv.New(st, "mdbox", version)
+	c.m[name] = s
+	return s, nil
 }
 
 func mustAbs(p string) string {

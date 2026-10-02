@@ -9,7 +9,7 @@ category: 产品
 
 # mdbox 产品需求文档（PRD）
 
-> 版本 v0.2 · 2026-10-01 · 状态：MVP + 体验增强已交付，自用验证中
+> 版本 v0.3 · 2026-10-02 · 状态：MVP + 体验增强已交付，自用验证中
 > 作者：与 CodeBuddy 多轮讨论后的产物
 
 ---
@@ -75,8 +75,8 @@ category: 产品
 - ❌ 自有存储服务（用磁盘目录 + Git；文档不托管到对象存储）
 - ❌ 移动端原生 App（Web 响应式已够用）
 - ❌ 富文本所见即所得编辑器（保留 Markdown 源码的纯粹性）
-- ❌ **多用户与权限体系**：只保留一个预置管理员用于登录，不做注册、角色、协作权限
-  （*v0.1 原为"不做账号体系、token 鉴权即可"；v0.2 因 Web 分享与权限边界需要，引入单管理员登录，但"不做多用户/权限分级"这一条不变*）
+- ❌ **权限体系与跨用户协作**：多用户只做到「各用户文档隔离」；不做角色、协作权限、用户间共享文档、找回/改密码流程
+  （*v0.1 为"不做账号体系"；v0.2 引入单管理员登录；v0.3 引入多用户自助注册，用 `users.yaml` 单文件管理，仍不引入数据库，权限分级与协作仍不做*）
 
 ---
 
@@ -109,21 +109,29 @@ category: 产品
 | P0-5 | 上传 / 下载 | 拖拽或选择多个 .md 上传；单篇下载为 .md | 上传时沿用文件自带 frontmatter 的标题与标签 |
 | P0-6 | REST API | 覆盖登录、文档 CRUD、搜索、标签/分类聚合、multipart 上传、Markdown 渲染、分享 | 全端点通过冒烟测试（见第 7 节） |
 | P0-7 | MCP Server | 7 个工具，支持 HTTP（Streamable）与 stdio 双传输 | agent 可独立完成写入—检索—读取闭环 |
-| P0-8 | 鉴权 | Web 用管理员登录会话（Cookie）；agent/脚本用共享令牌（`config.yaml` 的 `token`）。`/api` 接受"会话或令牌"，`/mcp` 仅令牌 | 未登录访问 Web 会被拦到登录页；令牌可被 `-token` / `MDBOX_TOKEN` 覆盖 |
+| P0-8 | 鉴权 | Web 用登录会话（Cookie）；agent/脚本用**用户自己的 token**（注册时自动生成，可重置）。会话与 token 都解析成用户，`/api`、`/mcp` 只能访问该用户自己的文档；`/mcp` 仅认 token | 未登录访问 Web 被拦到登录页；A 用户的会话/token 读不到 B 用户的文档 |
 | P0-9 | Git 自动备份 | 数据目录 git 化 + crontab 定时提交推送 | 无变更不产生空提交；推送失败不影响服务 |
 
 ### 4.2 v0.2 —— 体验增强（已交付）
 
 | 编号 | 功能 | 说明 |
 |---|---|---|
-| V2-1 | **管理员登录** | 预置单管理员，无注册；凭据写在 `config.yaml`（首次启动自动生成）。会话存内存，重启需重登 |
+| V2-1 | **登录** | Web 用户名/密码登录，会话存内存，重启需重登。v0.3 起账号来自 `users.yaml`（见 V3-1），`config.yaml` 的 admin 仅用于首次初始化 |
 | V2-2 | **顶栏与布局** | 顶栏：产品名 + Logo、MCP 接入弹窗、浅色/深色主题切换、用户信息与退出；正文区改为「左菜单（分类/标签/归档）+ 右内容」布局 |
 | V2-3 | **只读预览为主** | 打开文档默认只读渲染，点「编辑」才进双栏模式，降低误编辑 |
-| V2-4 | **文档分享** | 每篇可手动开启，生成**固定算法**的稳定链接 `/s/<id>/<sig>`（`sig = HMAC-SHA256(secret,id)[:24]`）；匿名免登录**只读**，可随时关闭撤销；改 `secret` 使全部链接失效 |
+| V2-4 | **文档分享** | 每篇可手动开启，生成**固定算法**的稳定链接 `/s/<user>/<id>/<sig>`（`sig = HMAC-SHA256(secret, user/id)[:24]`）；匿名免登录**只读**，可随时关闭撤销；改 `secret` 使全部链接失效 |
 | V2-5 | **导出** | 预览模式可下载 `.md`，或导出 PDF（浏览器端 html2pdf，**本地内置、不依赖 CDN**） |
 | V2-6 | **文档删除** | 列表卡片悬停显示删除按钮，二次确认后**彻底删除**（不可恢复，区别于归档的软删除） |
 | V2-7 | **自定义弹框** | 用自绘对话框替换浏览器原生 `confirm`/`alert`，统一视觉与交互 |
-| V2-8 | **令牌入配置** | agent 令牌从环境变量改为 `config.yaml` 的 `token` 字段（自动生成），启动无需再传 |
+| V2-8 | **令牌入配置** | （v0.2）agent 令牌从环境变量改为 `config.yaml` 的 `token`；**v0.3 已被 V3-2 取代**，不再使用共享令牌 |
+
+**v0.3 多用户**
+
+| 编号 | 功能 | 说明 |
+|---|---|---|
+| V3-1 | **自助注册与用户表** | 用户名（`[a-z0-9_-]` 3-32 位）+ 密码（8-72 位）注册；用户表是单个 `users.yaml`（用户名 / bcrypt 密码哈希 / token / 创建时间），放在 `data/` 之外不进备份；`config.yaml` 的 `allow_register: false` 可关闭注册；同 IP 每小时最多注册 5 次 |
+| V3-2 | **每用户 token** | 注册时自动生成，Web「MCP 接入」弹窗可查看与重置；废弃共享 `token` / `-token` / `MDBOX_TOKEN`；`-stdio` 需 `-user` 指定为谁服务 |
+| V3-3 | **文档按用户隔离** | 每个用户一个目录 `data/users/<username>/{docs,archive}`，对应一个独立 Store；admin 也在 `data/users/admin/` 下 |
 
 ### 4.3 P1 —— 下一阶段（未交付）
 
@@ -171,8 +179,9 @@ category: 产品
 服务层   HTTP Server ──── REST API ──── MCP Server（共用同一 store）
             │              ├ 元数据索引（内存，启动时全量重建）
             │              ├ 登录会话（内存）+ 分享签名（HMAC）
-存储层   data/docs/*.md + frontmatter ← git 自动备份到远端
-配置     config.yaml：管理员账号 / 分享 secret / agent token
+存储层   data/users/<username>/docs/*.md + frontmatter ← git 自动备份到远端
+用户表   users.yaml（data/ 之外）：用户名 / 密码哈希 / 每用户 token
+配置     config.yaml：初始账号 / 分享 secret / allow_register
 ```
 
 ### 6.2 数据模型
@@ -198,8 +207,8 @@ updated: 2026-10-01T00:00:00+08:00
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| POST | `/api/login` · `/api/logout` | 登录 / 退出（下发与清除会话 Cookie） |
-| GET | `/api/me` | 当前登录用户 |
+| POST | `/api/login` · `/api/register` · `/api/logout` | 登录 / 注册（成功即登录）/ 退出（下发与清除会话 Cookie） |
+| GET | `/api/me` · POST `/api/me/token` | 当前用户及其 token / 重置 token |
 | GET | `/api/health` | 健康检查 |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
 | POST | `/api/docs` | 创建 |
@@ -209,18 +218,18 @@ updated: 2026-10-01T00:00:00+08:00
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
 | POST | `/api/docs/{id}/share` | 开启/关闭分享，返回固定链接 |
 | GET | `/api/docs/{id}/download` | 下载 .md |
-| GET | `/api/share/{id}/{sig}` · `/api/share/{id}/{sig}/download` | **匿名**只读读取 / 下载（分享） |
+| GET | `/api/share/{user}/{id}/{sig}` · `/api/share/{user}/{id}/{sig}/download` | **匿名**只读读取 / 下载（分享） |
 | GET | `/api/tags` · `/api/categories` | 聚合 |
 | POST | `/api/upload` | multipart 多文件上传 |
 | POST | `/api/preview` | Markdown → HTML |
 
-`/s/{id}/{sig}` 返回分享页 HTML（前端按路径进入只读分享模式）。
+`/s/{user}/{id}/{sig}` 返回分享页 HTML（前端按路径进入只读分享模式）。
 
 ### 6.4 MCP 工具
 
 `list_docs` · `search_docs` · `read_doc` · `write_doc` · `update_doc` · `list_tags` · `archive_doc`
 
-接入方式（HTTP，令牌见 `config.yaml` 的 `token`）：
+接入方式（HTTP，token 是你自己账号的，见 Web「MCP 接入」；每个 token 只能访问其所属用户的文档）：
 
 ```json
 { "mcpServers": { "mdbox": { "url": "http://<server>:8080/mcp",
@@ -230,7 +239,7 @@ updated: 2026-10-01T00:00:00+08:00
 ### 6.5 部署与运维
 
 单二进制交付（前端资源 embed 进可执行文件），Go 1.23+ 构建，无数据库、无外部服务依赖。
-配置文件 `config.yaml` 首次启动自动生成（管理员账号、分享 secret、agent token），已 gitignore。
+配置文件 `config.yaml` 首次启动自动生成（初始账号、分享 secret、allow_register），用户表 `users.yaml` 随首次启动创建，二者均已 gitignore。
 数据目录本身是 Git 仓库，`scripts/git-backup.sh` 挂 crontab 定时备份。
 
 **部署约束**：mdbox 是**有状态、单实例**服务（内存索引 + 内存会话 + 磁盘文件），需挂持久磁盘当 `data/`；文档走普通文件系统 I/O，**不适合直接放在对象存储（S3/OSS）上**。
@@ -267,8 +276,10 @@ updated: 2026-10-01T00:00:00+08:00
 | 验证项 | 结果 |
 |---|---|
 | 匿名访问被拦到登录页；错误密码 401；`admin` 登录成功 | ✓ |
-| agent 令牌（`config.yaml`）访问 `/api` 与 `/mcp` 均通过；无令牌 401 | ✓ |
-| `-token` 覆盖配置令牌生效 | ✓ |
+| 注册：重复用户名 409、非法用户名/弱密码 400、第 6 次同 IP 注册 429、`allow_register:false` 时 403 | ✓ |
+| 隔离：A 创建的文档，B 的会话/token 列表为空、读取 404；MCP 同理，且拿 A 的 session id 配 B 的 token 仍只看到 B 的数据 | ✓ |
+| 用户 token 访问 `/api` 与 `/mcp` 均通过；无 token 或重置后的旧 token 401 | ✓ |
+| 分享：他人伪造 `<user>` 段签名校验失败 404；stdio 指定不存在的 `-user` 启动即失败 | ✓ |
 | 归档 / 删除：删除后文件从磁盘移除、列表数减一、再访问 404 | ✓ |
 | 分享：开启得固定链接 → 匿名读 200 → 重复开启地址不变 → 关闭后 404 | ✓ |
 | 分享页顶部 Logo / 主题切换 / `.md`、PDF 下载 | ✓ |
@@ -283,6 +294,7 @@ updated: 2026-10-01T00:00:00+08:00
 |---|---|---|
 | M0 | MVP（已完成） | 2026-10-01 |
 | M0.2 | 体验增强：登录 / 分享 / 导出 / 主题 / 删除（已完成） | 2026-10-01 |
+| M0.3 | 多用户：自助注册 / 每用户 token / 文档隔离（已完成） | 2026-10-02 |
 | M0.5 | **自用验证期**：真实导入与日常使用，积累 30+ 文档 | 未来 2–4 周 |
 | M1 | 产出端自动入库 + 过期候选清单 | 视 M0.5 结论决定 |
 | M2 | 静态导出 + 文档关联 | 未排期 |
@@ -330,3 +342,4 @@ updated: 2026-10-01T00:00:00+08:00
 |---|---|---|
 | v0.1 | 2026-10-01 | MVP 交付：文档存储 / 元数据 / Web 列表与双栏编辑 / 上传下载 / REST API / MCP 双传输 / token 鉴权 / git 自动备份 |
 | v0.2 | 2026-10-01 | 体验增强（V2-1~V2-8）：管理员登录、侧栏布局、默认只读预览、文档分享、`.md`/PDF 导出、文档删除、浅色/深色主题、MCP 接入弹窗、自定义弹框、令牌移入 `config.yaml`。非目标中"不做账号体系"调整为"不做多用户与权限体系"。数据模型新增 `shared` 字段；REST API 增补 login/logout/me/share |
+| v0.3 | 2026-10-02 | 多用户（V3-1~V3-3）：自助注册、`users.yaml` 用户表（bcrypt）、每用户 MCP/API token、文档按 `data/users/<username>/` 隔离、分享链接带 `<user>` 段；废弃共享 token / `-token` / `MDBOX_TOKEN`；非目标调整为"不做权限体系与跨用户协作"。API 增补 register、`me/token` |

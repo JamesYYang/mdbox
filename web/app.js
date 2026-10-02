@@ -515,12 +515,12 @@
     return openDialog(opts);
   }
 
-  function openMcp() {
+  function renderMcp(token) {
     var http = {
       mcpServers: {
         mdbox: {
           url: location.origin + '/mcp',
-          headers: { Authorization: 'Bearer <config.yaml 中的 token>' }
+          headers: { Authorization: 'Bearer ' + token }
         }
       }
     };
@@ -528,13 +528,28 @@
       mcpServers: {
         mdbox: {
           command: '/path/to/mdbox',
-          args: ['-stdio', '-data', '/path/to/data']
+          args: ['-stdio', '-user', state.user, '-data', '/path/to/data']
         }
       }
     };
     $('mcp-http').textContent = JSON.stringify(http, null, 2);
     $('mcp-stdio').textContent = JSON.stringify(stdio, null, 2);
-    openModal('modal-mcp');
+  }
+
+  function openMcp() {
+    api('/api/me').then(function (d) {
+      renderMcp(d.token);
+      openModal('modal-mcp');
+    }).catch(function (err) { uiAlert(err.message || '获取 token 失败'); });
+  }
+
+  function resetMcpToken() {
+    uiConfirm('重置后旧 token 立即失效，已配置的 agent 需要换成新 token。继续？').then(function (ok) {
+      if (!ok) { return; }
+      api('/api/me/token', { method: 'POST' }).then(function (d) {
+        renderMcp(d.token);
+      }).catch(function (err) { uiAlert(err.message || '重置失败'); });
+    });
   }
 
   /* ---------- 上传 ---------- */
@@ -559,6 +574,7 @@
     bindDialog();
     $('theme-btn').addEventListener('click', toggleTheme);
     $('mcp-btn').addEventListener('click', openMcp);
+    $('mcp-reset').addEventListener('click', resetMcpToken);
     $('logout-btn').addEventListener('click', function () {
       api('/api/logout', { method: 'POST', noAuthRedirect: true }).catch(function () {}).then(showLogin);
     });
@@ -656,19 +672,36 @@
   }
 
   function bindLogin() {
+    var registering = false;
+    function setMode(reg) {
+      registering = reg;
+      $('login-tip').textContent = reg ? '注册新账号' : '请登录后使用';
+      $('login-pass2').hidden = !reg;
+      $('login-pass').autocomplete = reg ? 'new-password' : 'current-password';
+      $('login-submit').textContent = reg ? '注册' : '登录';
+      $('login-switch').textContent = reg ? '已有账号？登录' : '没有账号？注册';
+      $('login-msg').textContent = '';
+    }
+    $('login-switch').addEventListener('click', function () { setMode(!registering); });
     $('login-form').addEventListener('submit', function (e) {
       e.preventDefault();
       $('login-msg').textContent = '';
-      api('/api/login', {
+      if (registering && $('login-pass').value !== $('login-pass2').value) {
+        $('login-msg').textContent = '两次输入的密码不一致';
+        return;
+      }
+      api(registering ? '/api/register' : '/api/login', {
         method: 'POST',
         body: JSON.stringify({ username: $('login-user').value, password: $('login-pass').value }),
         headers: { 'Content-Type': 'application/json' },
         noAuthRedirect: true
       }).then(function (d) {
         $('login-pass').value = '';
+        $('login-pass2').value = '';
+        setMode(false);
         enterApp(d.user);
       }).catch(function (err) {
-        $('login-msg').textContent = err.message || '登录失败';
+        $('login-msg').textContent = err.message || (registering ? '注册失败' : '登录失败');
       });
     });
   }
@@ -678,11 +711,11 @@
   function setupShare() {
     showView('share');
     bindShareEvents();
-    var parts = location.pathname.split('/').filter(Boolean); // ['s', id, sig]
+    var parts = location.pathname.split('/').filter(Boolean); // ['s', user, id, sig]
     var content = $('share-content');
-    if (parts.length < 3) { content.innerHTML = '<p>分享链接无效。</p>'; return; }
-    shareCtx = { id: parts[1], sig: parts[2], title: '' };
-    fetch('/api/share/' + encodeURIComponent(parts[1]) + '/' + encodeURIComponent(parts[2]))
+    if (parts.length < 4) { content.innerHTML = '<p>分享链接无效。</p>'; return; }
+    shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '' };
+    fetch(shareApi())
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
         if (!res.ok || res.data.error) { content.innerHTML = '<p>分享不存在或已失效。</p>'; return; }
@@ -691,6 +724,10 @@
         document.title = (shareCtx.title || '分享') + ' · MDBox';
       })
       .catch(function () { content.innerHTML = '<p>加载失败。</p>'; });
+  }
+
+  function shareApi() {
+    return '/api/share/' + encodeURIComponent(shareCtx.user) + '/' + encodeURIComponent(shareCtx.id) + '/' + encodeURIComponent(shareCtx.sig);
   }
 
   function bindShareEvents() {
@@ -709,7 +746,7 @@
 
   function shareDownloadMd() {
     if (!shareCtx) { return; }
-    fetch('/api/share/' + encodeURIComponent(shareCtx.id) + '/' + encodeURIComponent(shareCtx.sig) + '/download')
+    fetch(shareApi() + '/download')
       .then(function (r) { if (!r.ok) { throw new Error('下载失败'); } return r.blob(); })
       .then(function (blob) {
         var a = document.createElement('a');

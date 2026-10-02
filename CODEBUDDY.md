@@ -11,16 +11,15 @@ mdbox is a self-hosted Markdown knowledge base. Documents are plain `.md` files 
 ```bash
 go build -o mdbox .                      # build single binary (web assets embedded)
 go run . -addr :8080 -data ./data        # run Web + REST + MCP(HTTP)
-go run . -stdio -data ./data             # run as MCP stdio server for a local agent
-MDBOX_TOKEN=xxx go run .                 # override the agent token (default comes from config.yaml)
-go run . -config ./config.yaml           # explicit config path (default ./config.yaml)
+go run . -stdio -user alice -data ./data # run as MCP stdio server for a local agent, serving user alice
+go run . -config ./config.yaml -users ./users.yaml   # explicit config / user registry paths
 gofmt -l .                               # formatting check (no linter config in repo)
-go test ./...                            # currently no test files exist
+go test ./...                            # only internal/users has tests
 ```
 
-On first run a `config.yaml` is created (admin / `mdbox@111!!!` + random `secret`). It is gitignored; `config.example.yaml` is the committed template.
+On first run a `config.yaml` is created (admin / `mdbox@111!!!`, random `secret`, `allow_register: true`) and the admin is seeded into `users.yaml`. Both are gitignored; `config.example.yaml` is the committed template.
 
-There are no automated tests in this repository. Verification is done manually via curl against the REST API and the MCP tools (see PRD §7 for the smoke-test checklist).
+Automated tests only cover `internal/users`. Everything else is verified manually via curl against the REST API and the MCP tools (see PRD §7 for the smoke-test checklist).
 
 ## Architecture
 
@@ -28,11 +27,12 @@ Single Go module (`mdbox`), layered and wired entirely in `main.go`:
 
 ```
 main.go            flags, routing, embed web/, stdio-vs-HTTP branch
-  internal/store   persistence + in-memory metadata index (the core)
+  internal/store   persistence + in-memory metadata index (the core); one instance per user
+  internal/users   users.yaml registry, bcrypt passwords, per-user tokens, user -> *store.Store
   internal/api     REST handlers over *store.Store
   internal/mcp     MCP tool definitions over the same *store.Store
   internal/render  goldmark Markdown -> HTML
-  internal/config  config.yaml (admin credentials + share secret)
+  internal/config  config.yaml (bootstrap admin, share secret, allow_register)
   internal/auth    in-memory login sessions
   web/             vanilla JS/CSS, embedded with //go:embed web
   web/vendor/      html2pdf.bundle.min.js (local, for PDF export)
@@ -40,24 +40,26 @@ main.go            flags, routing, embed web/, stdio-vs-HTTP branch
 
 Key facts that span multiple files:
 
-- **One store, two frontends.** `main.go:42` builds a single `*store.Store` and passes it to both `api.New` and `mcpsrv.New`. REST and MCP are two interfaces onto identical state; any new capability belongs in `store` first.
+- **One store per user, two frontends.** `users.Registry` hands out a `*store.Store` per user (`data/users/{name}/`); REST (via request context) and MCP (via a per-user cached server) both resolve to it. REST and MCP are two interfaces onto identical state; any new capability belongs in `store` first.
 - **Filesystem is the source of truth.** `internal/store/store.go` keeps a `map[string]*entry` index in memory, rebuilt from disk at startup (`reload`). When a lookup misses, `Get` reloads before failing, so files added/removed externally are picked up on the next request. `Doc.Content` is only populated by `Get`, not by `List`.
 - **Document ID = filename.** `newID()` produces `{YYYYMMDD}-{12 hex chars}.md`; the ID stored in JSON is the basename without `.md`. Moving between `docs/` and `archive/` changes `Status` but not the ID.
 - **Frontmatter is the persistence format.** `loadFile` / `readBody` / `serialize` parse and emit the `---` YAML block. `CreateFromRaw` (used by upload) honors a file's existing frontmatter title/tags/category, falling back to the filename.
 - **Archive is a soft delete** (file moves to `data/archive/`); `Delete` is the only real removal. `List` defaults to `status=active` unless `all` is requested.
 
-### Auth
+### Auth & users
 
-Two independent mechanisms over one store:
+Multi-user, still no database. Both mechanisms resolve a request to a **username**, and everything after that only touches that user's own documents:
 
-- **Web UI** logs in with a username/password (no registration). Credentials live in `config.yaml` (`internal/config`), auto-created on first run with `admin` / `mdbox@111!!!` plus a random `secret`. Login (`POST /api/login`) issues an in-memory session token in an HttpOnly cookie `mdbox_session` (`internal/auth`); sessions are lost on restart. `logout`/`me` round it out.
-- **Agents/scripts** use a single shared token, resolved in `main.go` as `-token` flag / `MDBOX_TOKEN` env → else `config.yaml`'s `token` (auto-generated on first run). `/mcp` is gated only by this token (`withToken` in `main.go`).
+- **Registry**: `internal/users` keeps `users.yaml` (path via `-users`, deliberately **outside** `data/` so password hashes/tokens never get git-backed-up): `username`, bcrypt `password_hash`, per-user `token`, `created`. Writes are tmp-file + rename under a mutex. `Registry.Store(name)` lazily builds one `store.Store` per user rooted at `data/users/{name}/`; it refuses unknown users so public paths can't create directories. Usernames are `^[a-z0-9][a-z0-9_-]{2,31}$` (they become directory names, so this is also the path-traversal guard), minus Windows reserved device names.
+- **Bootstrap**: on startup `main.go` calls `EnsureUser` with `config.yaml`'s `admin`; it only seeds when that user is absent, so later password edits in config have no effect. After that admin is a normal user. The old shared `token` / `-token` / `MDBOX_TOKEN` are gone.
+- **Web UI**: `POST /api/login` / `POST /api/register` (the latter gated by `config.allow_register`, per-IP limit of 5/hour, then auto-login) issue an in-memory session in HttpOnly cookie `mdbox_session` (`internal/auth`); sessions are lost on restart. `GET /api/me` returns the user + their token; `POST /api/me/token` rotates it.
+- **Agents/scripts**: the user's own token as `Authorization: Bearer` (or `?token=`). `/mcp` in `main.go` maps token → user → a cached per-user `MCPServer`; no valid token means 401 (the old empty-token pass-through is gone). Note `/mcp` still builds a new `NewStreamableHTTPServer` per request.
 
-`withAuth` in `internal/api/api.go` wraps `/api/`: it passes through `POST /api/login`, `POST /api/logout`, and `GET /api/share/...`, then accepts **either** a valid session cookie **or** the shared token. So the same `/api/*` serves both the logged-in browser and token-carrying agents; empty token just means agents can't authenticate. The `/mcp` handler builds a **new** `NewStreamableHTTPServer` on every request.
+`withAuth` (`internal/api/server.go`) passes through `POST /api/login`, `/api/register`, `/api/logout` and `GET /api/share/...`, otherwise `identify` accepts a valid session cookie **or** a user token, then puts the user's `*store.Store` in the request context. Handlers fetch it with `stOf(r)` / `userOf(r)` — never hold a global store. `-stdio` requires `-user <name>` (must exist in `users.yaml`).
 
 ### Sharing
 
-Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST /api/docs/{id}/share`). A shared doc is readable anonymously at `GET /api/share/{id}/{sig}` and `/s/{id}/{sig}` (which serves `index.html`; the SPA enters read-only share mode by pathname, with its own topbar: brand, theme toggle, and `.md`/PDF download). Markdown download is `GET /api/share/{id}/{sig}/download`. `sig = HMAC-SHA256(secret, id)[:24]` is deterministic, so the link is stable; changing `secret` invalidates every existing link, and unsharing makes it 404.
+Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST /api/docs/{id}/share`). A shared doc is readable anonymously at `GET /api/share/{user}/{id}/{sig}` and `/s/{user}/{id}/{sig}` (serves `index.html`; the SPA enters read-only share mode by pathname). `sig = HMAC-SHA256(secret, user+"/"+id)[:24]` is deterministic, so links are stable; changing `secret` invalidates every link, and unsharing makes it 404. A forged `user` fails the signature check.
 
 ### Rendering & frontend
 
@@ -72,14 +74,14 @@ Horizontal clipping (a half character cut off at the right edge) is a **width** 
 ## Data layout & backup
 
 ```
-data/
+data/users/{username}/
 ├── docs/*.md       active documents
 └── archive/*.md    archived documents
 ```
 
-`data/` is meant to be its own git repo for versioning/off-site backup. `scripts/git-backup.sh <data_dir>` commits and pushes, run from crontab. It no-ops on a clean tree and tolerates push failure (local commit is kept). `data/` and the `mdbox` binary are gitignored.
+`data/` is meant to be its own git repo for versioning/off-site backup. `scripts/git-backup.sh <data_dir>` commits and pushes, run from crontab. It no-ops on a clean tree and tolerates push failure (local commit is kept). `data/`, `config.yaml`, `users.yaml`, and the `mdbox` binary are gitignored.
 
 ## Conventions
 
 - Code comments and user-facing strings are in Chinese; match this when editing.
-- Product scope is deliberately narrow — see `docs/PRD.md` §2.3 "明确非目标" before adding features (no owned embeddings, no built-in chat UI, no DB, no WYSIWYG, no account system). New functionality should favor "agent writes in via MCP" over manual upload flows.
+- Product scope is deliberately narrow — see `docs/PRD.md` §2.3 "明确非目标" before adding features (no owned embeddings, no built-in chat UI, no DB, no WYSIWYG, no roles/permissions or cross-user sharing). New functionality should favor "agent writes in via MCP" over manual upload flows.

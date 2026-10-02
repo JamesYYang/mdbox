@@ -13,11 +13,13 @@
 <section id="view-login" class="login-wrap" hidden>
   <form id="login-form" class="login-card">
     <div class="login-brand"><img class="logo logo-login" src="/mdbox.png" alt="MDBox">MDBox</div>
-    <p class="login-tip">请登录后使用</p>
+    <p class="login-tip" id="login-tip">请登录后使用</p>
     <input id="login-user" placeholder="用户名" autocomplete="username">
     <input id="login-pass" type="password" placeholder="密码" autocomplete="current-password">
-    <button class="primary" type="submit">登录</button>
+    <input id="login-pass2" type="password" placeholder="再次输入密码" autocomplete="new-password" hidden>
+    <button class="primary" type="submit" id="login-submit">登录</button>
     <div id="login-msg" class="login-msg"></div>
+    <button type="button" class="ghost" id="login-switch">没有账号？注册</button>
   </form>
 </section>
 
@@ -149,9 +151,10 @@
     <div class="modal-head"><span>MCP 接入</span><button class="modal-close" data-close="modal-mcp">×</button></div>
     <div class="modal-body">
       <p class="modal-tip">mdbox 内置 MCP 服务器，把下面配置加入任意支持 MCP 的 agent 即可读写知识库。</p>
-      <div class="code-label">HTTP（远程 agent，需设置 MDBOX_TOKEN）</div>
+      <div class="code-label">HTTP（远程 agent；token 属于你的账号，只能访问你自己的文档）</div>
       <pre class="code-block" id="mcp-http"></pre>
       <button class="copy-btn" data-copy="mcp-http">复制</button>
+      <button class="ghost" id="mcp-reset">重置 token</button>
       <div class="code-label">stdio（本机 agent 直连）</div>
       <pre class="code-block" id="mcp-stdio"></pre>
       <button class="copy-btn" data-copy="mcp-stdio">复制</button>

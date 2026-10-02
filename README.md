@@ -7,16 +7,16 @@
 ## 功能
 
 - **Web UI**
-  - **登录**：预置管理员账号，无注册流程；配置来自 `config.yaml`
-  - **顶栏**：产品名 + Logo、MCP 接入（弹窗给出接入配置）、浅色/深色主题切换、用户信息与退出
+  - **登录 / 注册**：多用户，用户名自助注册（可在 `config.yaml` 用 `allow_register: false` 关闭）；每人的文档彼此隔离
+  - **顶栏**：产品名 + Logo、MCP 接入（弹窗给出**你自己的** token 与接入配置，可重置）、浅色/深色主题切换、用户信息与退出
   - **左侧栏**：分类 / 标签 / 归档，一键筛选
   - **卡片列表**：全文搜索、悬停显示删除按钮（二次确认后彻底删除）
   - **阅读与编辑**：默认**只读预览**，点「编辑」进入左源码右实时预览的双栏模式，可改标题/分类/标签/归档
   - **上传 / 下载**：拖拽或选择多个 `.md`；预览模式下可下载 Markdown 或**导出 PDF**
 - **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，任何人凭链接免登录只读查看，可随时关闭撤销
-- **REST API**：登录、文档 CRUD、搜索、标签/分类聚合、multipart 上传、Markdown 渲染、分享
+- **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、multipart 上传、Markdown 渲染、分享
 - **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
-- **鉴权**：Web 用登录会话（Cookie），agent/脚本用共享令牌，两套相互独立
+- **鉴权**：Web 用登录会话（Cookie），agent/脚本用**每个用户各自的 token**，两者都只能访问该用户自己的文档
 - **git 自动备份**：数据目录本身是 git 仓库，定时提交并推送远端
 - **零前端依赖**：预览渲染在服务端（goldmark），不依赖任何 CDN；唯一打包的第三方 JS 是本地内置的 html2pdf（用于 PDF 导出）
 
@@ -27,63 +27,66 @@
 ```bash
 go build -o mdbox .
 ./mdbox -addr :8080 -data ./data
-# 浏览器打开 http://<server>:8080，用 admin / mdbox@111!!! 登录
+# 浏览器打开 http://<server>:8080，用 admin / mdbox@111!!! 登录，或直接注册新用户
 ```
 
-首次启动会在当前目录生成 **`config.yaml`**（已在 `.gitignore` 中）：
+首次启动会在当前目录生成 **`config.yaml`** 与 **`users.yaml`**（均已在 `.gitignore` 中）：
 
 ```yaml
+# config.yaml
 admin:
   username: admin
-  password: "mdbox@111!!!"        # 请及时修改
+  password: "mdbox@111!!!"        # 仅首次启动时用来初始化 users.yaml 里的第一个用户
 secret: "<随机生成：分享链接签名，改动会让所有已分享链接失效>"
-token:  "<随机生成：agent/脚本访问 /api 与 /mcp 的令牌>"
+allow_register: true              # false 则关闭自助注册
 ```
 
-- 用 `-config ./config.yaml` 指定配置路径；
-- `-token xxx` 或 `MDBOX_TOKEN=xxx` 可**临时覆盖**配置里的 `token`；
-- 模板见 `config.example.yaml`。
+- `config.yaml` 里的 `admin` 只在 `users.yaml` 还没有该用户时写入一次，之后 admin 与普通用户没有区别（改密码不会再读这里）；
+- `users.yaml` 是用户注册表（不用数据库）：用户名、**bcrypt 密码哈希**、该用户的 MCP token、创建时间。它放在 `data/` 之外，不会被 git 备份带走；
+- 用 `-config` / `-users` 指定两个文件的路径；模板见 `config.example.yaml`。
 
 ## 鉴权
 
-两套独立机制，共用同一个文档仓库：
+两套机制，最终都解析成「某个用户」，之后只能读写 `data/users/<username>/` 下的文档：
 
-- **Web 端**：用户名 / 密码登录（`POST /api/login`），下发内存会话 Cookie `mdbox_session`；`/api/*` 接受「有效会话 **或** 有效令牌」。会话存在内存，**进程重启后需重新登录**。
-- **agent / 脚本**：单个共享令牌（`config.yaml` 的 `token`，或 `-token` / `MDBOX_TOKEN` 覆盖），请求头 `Authorization: Bearer <token>`。`/mcp` 只认这个令牌。
+- **Web 端**：用户名 / 密码登录（`POST /api/login`）或注册（`POST /api/register`，成功后直接登录），下发内存会话 Cookie `mdbox_session`。会话存在内存，**进程重启后需重新登录**。
+- **agent / 脚本**：每个用户注册时自动生成一个 token，请求头 `Authorization: Bearer <token>`；`/api/*` 与 `/mcp` 都认它。token 可在 Web 的「MCP 接入」弹窗查看、重置（重置后旧 token 立即失效）。
+
+用户名规则：小写字母、数字、`_`、`-`，3-32 位；密码 8-72 位。同一 IP 每小时最多注册 5 次。
 
 ## 分享
 
 在文档预览模式点「分享」即可开启。链接形如：
 
 ```
-https://<host>/s/<id>/<sig>      # sig = HMAC-SHA256(secret, id)[:24]
+https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>")[:24]
 ```
 
 `sig` 由 `secret` 用固定算法生成，所以同一篇文档每次都是**同一个地址**；更改 `secret` 会让所有已分享链接立即失效，关闭分享则该链接返回 404。分享页只读，不能编辑。
 
 ## MCP 接入
 
-HTTP 模式（远程 agent，如 CodeBuddy / Claude 等）。令牌见 `config.yaml` 的 `token`：
+HTTP 模式（远程 agent，如 CodeBuddy / Claude 等）。token 是你自己账号的，在 Web 顶栏「MCP 接入」里查看；该 agent 只能访问你自己的文档：
 
 ```json
 {
   "mcpServers": {
     "mdbox": {
       "url": "http://your-server:8080/mcp",
-      "headers": { "Authorization": "Bearer <config.yaml 中的 token>" }
+      "headers": { "Authorization": "Bearer <你的 token>" }
     }
   }
 }
 ```
 
-stdio 模式（本机 agent 直连，无需令牌）：
+stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个用户服务，该用户须已注册）：
 
 ```json
 {
   "mcpServers": {
     "mdbox": {
       "command": "/path/to/mdbox",
-      "args": ["-stdio", "-data", "/path/to/data"]
+      "args": ["-stdio", "-user", "alice", "-data", "/path/to/data"]
     }
   }
 }
@@ -94,8 +97,10 @@ stdio 模式（本机 agent 直连，无需令牌）：
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | POST | `/api/login` | `{username,password}` 登录，下发会话 Cookie |
+| POST | `/api/register` | `{username,password}` 注册并登录，生成该用户的 token（可被 `allow_register` 关闭） |
 | POST | `/api/logout` | 退出登录 |
-| GET | `/api/me` | 当前登录用户 |
+| GET | `/api/me` | 当前用户与其 token |
+| POST | `/api/me/token` | 重置当前用户的 token |
 | GET | `/api/health` | 健康检查 |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
 | POST | `/api/docs` | 创建 `{title, content, tags, category, source}` |
@@ -105,20 +110,22 @@ stdio 模式（本机 agent 直连，无需令牌）：
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
 | POST | `/api/docs/{id}/share` | `{shared:bool}` 开启/关闭分享，返回固定链接 |
 | GET | `/api/docs/{id}/download` | 下载 .md |
-| GET | `/api/share/{id}/{sig}` | **匿名**只读读取（分享） |
-| GET | `/api/share/{id}/{sig}/download` | **匿名**下载 .md（分享） |
+| GET | `/api/share/{user}/{id}/{sig}` | **匿名**只读读取（分享） |
+| GET | `/api/share/{user}/{id}/{sig}/download` | **匿名**下载 .md（分享） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
 | POST | `/api/upload` | multipart 上传多个 .md |
 | POST | `/api/preview` | `{content}` → `{html}` |
-| POST | `/mcp` | MCP Streamable HTTP 端点（仅令牌） |
+| POST | `/mcp` | MCP Streamable HTTP 端点（仅用户 token，只暴露该用户自己的文档） |
 
 ## 数据与备份
 
 ```
-data/
+data/users/<username>/
 ├── docs/*.md      活跃文档
 └── archive/*.md   已归档文档
 ```
+
+每个用户一个目录，整个 `data/` 仍是一个 git 仓库，备份方式不变。
 
 初始化远端并加入 crontab：
 
@@ -137,7 +144,8 @@ internal/store/        存储层：frontmatter 解析、内存索引、CRUD
 internal/render/       Markdown → HTML（goldmark）
 internal/api/          REST API 与鉴权
 internal/mcp/          MCP 工具定义
-internal/config/       config.yaml（管理员账号 / 分享 secret / agent token）
+internal/config/       config.yaml（初始账号 / 分享 secret / 是否开放注册）
+internal/users/        用户注册表 users.yaml、密码哈希、token、按用户的 Store
 internal/auth/         内存登录会话
 web/                   前端（embed 进二进制，部署单文件）
 web/vendor/            本地内置的 html2pdf（PDF 导出用）
@@ -148,6 +156,7 @@ scripts/git-backup.sh  数据目录 git 自动备份
 
 - 元数据索引在内存中启动时全量重建，**外部直接增删 data 目录文件后，服务会在下次请求时自动重建**；万篇以内无压力
 - 登录会话存在内存，进程重启后所有人需重新登录；请以**单实例**运行
+- 多用户只做到「文档隔离」：没有角色/权限、没有用户间共享、没有找回/修改密码页面（忘记密码需管理员手动处理）
 - 预览渲染允许内联 HTML（`WithUnsafe`），仅建议个人或可信团队使用
 - 归档是软删除；**删除则是真删**，不可恢复
 - PDF 由浏览器端 html2pdf 把整页截成图片再切片分页，超长代码块或超大表格仍可能有分页瑕疵
