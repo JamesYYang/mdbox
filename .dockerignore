@@ -1,0 +1,10 @@
+.git
+.github
+data
+config.yaml
+users.yaml
+mdbox
+mdbox.exe
+screenshots
+docs
+*.log
