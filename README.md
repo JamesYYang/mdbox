@@ -134,6 +134,8 @@ crontab: */10 * * * * /path/to/mdbox/scripts/git-backup.sh /path/to/mdbox/data
 
 > 部署提示：mdbox 是**有状态、单实例**服务（内存索引 + 内存会话 + 磁盘文件），需要挂一块持久磁盘当 `data/`。文档**不适合**直接放在对象存储（S3/OSS）上——它是普通文件系统 I/O。
 
+在 Azure 上的完整部署步骤（GitHub Actions 构建 → ACR → Container Apps + Azure Files 持久卷）见 [`docs/DEPLOY.md`](docs/DEPLOY.md)。
+
 ## 目录结构
 
 ```
