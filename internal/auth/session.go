@@ -65,6 +65,17 @@ func (s *Sessions) Delete(tok string) {
 	s.mu.Unlock()
 }
 
+// DeleteUserExcept 注销某用户除 keep 外的所有会话（改密码后踢掉其他登录）。
+func (s *Sessions) DeleteUserExcept(user, keep string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for tok, sess := range s.m {
+		if sess.user == user && tok != keep {
+			delete(s.m, tok)
+		}
+	}
+}
+
 func randomHex(n int) string {
 	b := make([]byte, n)
 	_, _ = rand.Read(b)

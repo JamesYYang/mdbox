@@ -138,6 +138,33 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": u.Username, "token": u.Token})
 }
 
+// changePassword 修改当前用户密码：需要旧密码；成功后注销该用户的其他登录会话。
+func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Old string `json:"old"`
+		New string `json:"new"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		return
+	}
+	name := userOf(r)
+	switch err := s.reg.ChangePassword(name, in.Old, in.New); {
+	case errors.Is(err, users.ErrWeakPassword), errors.Is(err, users.ErrWrongPassword):
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	case err != nil:
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	keep := ""
+	if c, err := r.Cookie(auth.CookieName); err == nil {
+		keep = c.Value
+	}
+	s.sessions.DeleteUserExcept(name, keep)
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
 // resetToken 重新生成当前用户的 token，旧 token 立即失效。
 func (s *Server) resetToken(w http.ResponseWriter, r *http.Request) {
 	tok, err := s.reg.ResetToken(userOf(r))

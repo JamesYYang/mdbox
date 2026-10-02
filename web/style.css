@@ -78,6 +78,7 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
   font-size: 24px; font-weight: 700; letter-spacing: .5px; text-align: center;
 }
 .login-tip { margin: 0 0 6px; text-align: center; color: var(--muted); font-size: 13px; }
+.pwd-form { display: flex; flex-direction: column; gap: 12px; }
 .login-msg { min-height: 18px; font-size: 13px; color: var(--danger); text-align: center; }
 
 /* ---------- 顶栏 ---------- */

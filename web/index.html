@@ -65,6 +65,7 @@
     <div class="user">
       <span class="avatar" id="user-avatar">A</span>
       <span id="user-name" class="user-name">admin</span>
+      <button id="pwd-btn" class="ghost">修改密码</button>
       <button id="logout-btn" class="ghost">退出</button>
     </div>
   </header>
@@ -159,6 +160,20 @@
       <pre class="code-block" id="mcp-stdio"></pre>
       <button class="copy-btn" data-copy="mcp-stdio">复制</button>
     </div>
+  </div>
+</div>
+
+<!-- 修改密码弹窗 -->
+<div id="modal-pwd" class="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head"><span>修改密码</span><button class="modal-close" data-close="modal-pwd">×</button></div>
+    <form id="pwd-form" class="modal-body pwd-form">
+      <input id="pwd-old" type="password" placeholder="旧密码" autocomplete="current-password">
+      <input id="pwd-new" type="password" placeholder="新密码（8-72 位）" autocomplete="new-password">
+      <input id="pwd-new2" type="password" placeholder="再次输入新密码" autocomplete="new-password">
+      <div id="pwd-msg" class="login-msg"></div>
+      <button class="primary" type="submit">保存</button>
+    </form>
   </div>
 </div>
 

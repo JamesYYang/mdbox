@@ -52,6 +52,28 @@ func TestRegisterAuthenticate(t *testing.T) {
 	}
 }
 
+func TestChangePassword(t *testing.T) {
+	r, _ := open(t)
+	if _, err := r.Register("alice", "password1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.ChangePassword("alice", "wrong-pass", "newpass123"); err != ErrWrongPassword {
+		t.Errorf("旧密码错误应返回 ErrWrongPassword，得到 %v", err)
+	}
+	if err := r.ChangePassword("alice", "password1", "short"); err != ErrWeakPassword {
+		t.Errorf("弱新密码应被拒绝，得到 %v", err)
+	}
+	if err := r.ChangePassword("alice", "password1", "newpass123"); err != nil {
+		t.Fatalf("改密码失败: %v", err)
+	}
+	if _, ok := r.Authenticate("alice", "password1"); ok {
+		t.Error("旧密码应失效")
+	}
+	if _, ok := r.Authenticate("alice", "newpass123"); !ok {
+		t.Error("新密码应通过")
+	}
+}
+
 func TestTokenAndReset(t *testing.T) {
 	r, _ := open(t)
 	u, _ := r.Register("alice", "password1")

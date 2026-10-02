@@ -163,6 +163,36 @@ func (r *Registry) ByToken(tok string) (*User, bool) {
 	return found, found != nil
 }
 
+// ErrWrongPassword 表示修改密码时旧密码不正确。
+var ErrWrongPassword = errors.New("旧密码不正确")
+
+// ChangePassword 校验旧密码后改为新密码。
+func (r *Registry) ChangePassword(name, oldPassword, newPassword string) error {
+	if n := len(newPassword); n < 8 || n > 72 {
+		return ErrWeakPassword
+	}
+	if _, ok := r.Authenticate(name, oldPassword); !ok {
+		return ErrWrongPassword
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	i := r.indexLocked(name)
+	if i < 0 {
+		return ErrNotFound
+	}
+	old := r.list[i].PasswordHash
+	r.list[i].PasswordHash = string(hash)
+	if err := r.saveLocked(); err != nil {
+		r.list[i].PasswordHash = old
+		return err
+	}
+	return nil
+}
+
 // ResetToken 为用户重新生成 token，旧 token 立即失效。
 func (r *Registry) ResetToken(name string) (string, error) {
 	r.mu.Lock()

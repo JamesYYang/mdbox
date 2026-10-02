@@ -636,6 +636,27 @@
     });
   }
 
+  function openPwd() {
+    $('pwd-form').reset();
+    $('pwd-msg').textContent = '';
+    openModal('modal-pwd');
+    $('pwd-old').focus();
+  }
+
+  function submitPwd(e) {
+    e.preventDefault();
+    var oldPwd = $('pwd-old').value, newPwd = $('pwd-new').value;
+    if (newPwd !== $('pwd-new2').value) { msg('pwd-msg', '两次输入的新密码不一致', true); return; }
+    api('/api/me/password', {
+      method: 'POST',
+      body: JSON.stringify({ old: oldPwd, new: newPwd }),
+      headers: { 'Content-Type': 'application/json' }
+    }).then(function () {
+      closeModal('modal-pwd');
+      uiAlert('密码已修改，其他设备上的登录已失效。');
+    }).catch(function (err) { msg('pwd-msg', err.message || '修改失败', true); });
+  }
+
   /* ---------- 上传 ---------- */
 
   function uploadFiles(files) {
@@ -659,6 +680,8 @@
     $('theme-btn').addEventListener('click', toggleTheme);
     $('mcp-btn').addEventListener('click', openMcp);
     $('mcp-reset').addEventListener('click', resetMcpToken);
+    $('pwd-btn').addEventListener('click', openPwd);
+    $('pwd-form').addEventListener('submit', submitPwd);
     $('logout-btn').addEventListener('click', function () {
       api('/api/logout', { method: 'POST', noAuthRedirect: true }).catch(function () {}).then(showLogin);
     });

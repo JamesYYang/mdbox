@@ -132,6 +132,7 @@ category: 产品
 | V3-1 | **自助注册与用户表** | 用户名（`[a-z0-9_-]` 3-32 位）+ 密码（8-72 位）注册；用户表是单个 `users.yaml`（用户名 / bcrypt 密码哈希 / token / 创建时间），放在 `data/` 之外不进备份；`config.yaml` 的 `allow_register: false` 可关闭注册；同 IP 每小时最多注册 5 次 |
 | V3-2 | **每用户 token** | 注册时自动生成，Web「MCP 接入」弹窗可查看与重置；废弃共享 `token` / `-token` / `MDBOX_TOKEN`；`-stdio` 需 `-user` 指定为谁服务 |
 | V3-3 | **文档按用户隔离** | 每个用户一个目录 `data/users/<username>/{docs,archive}`，对应一个独立 Store |
+| V3-4 | **修改密码** | 顶栏「修改密码」弹窗：校验旧密码、新密码 8-72 位；成功后注销该用户的其他登录会话（当前会话保留）。无找回密码流程 |
 
 ### 4.3 P1 —— 下一阶段（未交付）
 
@@ -209,6 +210,7 @@ updated: 2026-10-01T00:00:00+08:00
 |---|---|---|
 | POST | `/api/login` · `/api/register` · `/api/logout` | 登录 / 注册（成功即登录）/ 退出（下发与清除会话 Cookie） |
 | GET | `/api/me` · POST `/api/me/token` | 当前用户及其 token / 重置 token |
+| POST | `/api/me/password` | 修改密码（需旧密码），其他会话失效 |
 | GET | `/api/health` | 健康检查 |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
 | POST | `/api/docs` | 创建 |

@@ -98,6 +98,7 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | POST | `/api/logout` | 退出登录 |
 | GET | `/api/me` | 当前用户与其 token |
 | POST | `/api/me/token` | 重置当前用户的 token |
+| POST | `/api/me/password` | 修改当前用户密码，body `{"old","new"}`；成功后其他登录会话失效 |
 | GET | `/api/health` | 健康检查 |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
 | POST | `/api/docs` | 创建 `{title, content, tags, category, source}` |
