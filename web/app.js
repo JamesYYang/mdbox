@@ -899,6 +899,7 @@
   }
 
   function bindShareEvents() {
+    bindDialog();
     $('share-theme-btn').addEventListener('click', toggleTheme);
     $('share-brand').addEventListener('click', function () { location.href = '/'; });
     $('share-download').addEventListener('click', function (e) {
@@ -927,7 +928,9 @@
   }
 
   function shareDownloadPdf() {
-    exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function () {});
+    exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function (e) {
+      uiAlert(e.message || '导出失败，请重试', { title: '导出失败' });
+    });
   }
 
   /* ---------- 启动 ---------- */

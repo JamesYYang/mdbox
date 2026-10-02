@@ -405,6 +405,7 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 
   /* —— 分享页 —— */
   .share-brand-tip { display: none; }
+  .topbar .brand-slogan { display: none; }
   .share-inner { padding: 20px 14px calc(20px + env(safe-area-inset-bottom)); }
 
   /* —— 登录页 —— */

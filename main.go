@@ -251,6 +251,9 @@ func (g *gzipWriter) Write(b []byte) (int, error) {
 
 // compressible 判断按扩展名是否值得 gzip（文本类；png 等已压缩格式跳过）。
 func compressible(p string) bool {
+	if p == "/" { // 首页实际返回 index.html
+		return true
+	}
 	switch path.Ext(p) {
 	case ".js", ".css", ".html", ".htm", ".svg", ".json", ".txt", ".map", ".xml":
 		return true
