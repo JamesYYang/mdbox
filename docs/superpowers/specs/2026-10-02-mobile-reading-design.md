@@ -76,7 +76,7 @@
 ### 3. 侧栏抽屉行为
 
 - 窄屏：`.sidebar` 变为 `position: fixed; top: 54px; bottom: 0; width: min(78vw, 300px); overflow: auto`，默认 `transform: translateX(-100%)`。
-- `body.nav-open` 时：`.sidebar` → `translateX(0)`，同时显示 `#side-backdrop` 并 `body { overflow: hidden }` 锁滚动。
+- `body.nav-open` 时：`.sidebar` → `translateX(0)`，同时显示 `#side-backdrop`。真正挡住背景滑动的是遮罩（它覆盖正文且 `pointer-events: auto`），而不是 `body { overflow: hidden }` —— 因为真正的滚动容器是 `#app` 内部的 `#view-list` 与 `.pane-preview`，body 自身并不滚动。`overflow: hidden` 作为纵深防御保留。
 - 关闭时机：点遮罩、按 Esc、选中任意分类/标签后（`onSideClick` 末尾追加关闭）。
 - **复位**：不需要。`body.nav-open` 与 `.sidebar` 的相关规则全部写在 `@media (max-width: 720px)` 内部，窗口变宽时自动失效，桌面端不会被锁滚动。仅在 `resetSession()`（退出/切换账号）时移除 `nav-open`。
 

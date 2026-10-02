@@ -171,6 +171,8 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
   background: var(--accent-soft); color: var(--accent);
 }
 .empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+/* 空列表提示语：窄屏没有「新建」按钮也拖不了文件，换成可行的说法 */
+.empty-narrow { display: none; }
 
 /* ---------- 文档视图 ---------- */
 #view-doc { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -297,7 +299,8 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
     box-shadow: 0 0 24px rgba(0, 0, 0, .18);
   }
   body.nav-open .sidebar { transform: translateX(0); }
-  /* 锁滚动。规则写在媒体查询内，桌面端天然不受影响 */
+  /* 纵深防御：body 自身并不滚动，真正挡住背景滑动的是遮罩的 pointer-events。
+     这里保留 overflow:hidden 以防将来布局改成 body 可滚动。 */
   body.nav-open { overflow: hidden; }
 
   .side-backdrop {
@@ -392,11 +395,14 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
   /* —— 分享页 —— */
   .share-brand-tip { display: none; }
   .share-inner { padding: 20px 14px calc(20px + env(safe-area-inset-bottom)); }
-  .code-block { font-size: 12px; }
 
   /* —— 登录页 —— */
   .login-wrap { padding: 16px; }
   .login-card { width: 100%; max-width: 340px; padding: 22px 18px; }
+
+  /* 窄屏空列表提示：隐藏含「新建 / 拖入」的桌面说法，只留可行提示 */
+  .empty-wide { display: none; }
+  .empty-narrow { display: inline; }
 }
 
 /* PDF 导出时临时包裹层 */
