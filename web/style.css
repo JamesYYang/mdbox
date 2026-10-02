@@ -388,6 +388,15 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
   .modal-card { max-height: 88vh; max-height: 88dvh; }
   .modal-body { padding: 14px; }
   .detailfoot { padding: 6px 12px calc(6px + env(safe-area-inset-bottom)); }
+
+  /* —— 分享页 —— */
+  .share-brand-tip { display: none; }
+  .share-inner { padding: 20px 14px calc(20px + env(safe-area-inset-bottom)); }
+  .code-block { font-size: 12px; }
+
+  /* —— 登录页 —— */
+  .login-wrap { padding: 16px; }
+  .login-card { width: 100%; max-width: 340px; padding: 22px 18px; }
 }
 
 /* PDF 导出时临时包裹层 */
