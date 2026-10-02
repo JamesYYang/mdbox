@@ -74,13 +74,15 @@ go build -o mdbox.exe . && ./mdbox.exe -addr 127.0.0.1:8080 -data ./data
 
 ```html
   <header class="topbar">
-    <button id="side-toggle" class="icon-btn" title="目录" aria-label="打开目录">
+    <button id="side-toggle" class="icon-btn side-toggle" title="目录" aria-label="打开目录">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/>
       </svg>
     </button>
     <div class="brand"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox</div>
 ```
+
+> **`side-toggle` 这个类名是必须的**，不能只写 `class="icon-btn"`。Step 3 的基础规则用 `.side-toggle { display: none }` 把它在桌面端隐藏；只给 `icon-btn` 的话选择器不匹配，桌面端也会冒出 ☰ 按钮。
 
 - [ ] **Step 2: 在 `.shell` 之后插入遮罩元素**
 
