@@ -328,6 +328,27 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
     padding: 4px 8px 10px; font-size: 14px; color: var(--text);
   }
   .side-foot-btn { display: block; width: 100%; text-align: left; margin-bottom: 6px; }
+
+  /* —— 窄屏只读：隐藏一切编辑/新建/上传/删除入口 —— */
+  /* 注意 .card-del 在基础区有一条 @media (hover:none) 规则把它设为常显，
+     那条只改 opacity/pointer-events，不会覆盖这里的 display:none。 */
+  #btn-new, #btn-upload, #p-edit, #e-archive, .card-del { display: none; }
+
+  /* —— 列表页 —— */
+  #view-list { padding: 12px 14px; }
+  .listbar { gap: 8px; }
+  .listbar .search { max-width: none; }
+  /* 基础规则是 repeat(auto-fill, minmax(280px,1fr))，在 600-720px 区间会出两列；
+     手机上锁定单列，避免卡片被压得过窄。 */
+  .list { grid-template-columns: 1fr; }
+
+  /* —— 文档工具条：预览条压成单行，标题占满剩余宽度并截断 —— */
+  #preview-bar { flex-wrap: nowrap; padding: 8px 12px; gap: 6px; }
+  #preview-bar .spacer { display: none; }
+  .doc-title { flex: 1; min-width: 0; max-width: none; font-size: 14px; }
+  .docbar .msg { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 编辑条在窄屏不可达，保留换行兜底 */
+  #edit-bar { flex-wrap: wrap; }
 }
 
 /* PDF 导出时临时包裹层 */
