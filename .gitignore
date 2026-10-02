@@ -8,3 +8,6 @@ mdbox.exe
 /mdbox.source.png
 /users.yaml
 /users.yaml.tmp
+
+# superpowers 技能的工作目录（brainstorm mockup、spec 草稿等）
+/.superpowers/
