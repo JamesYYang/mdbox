@@ -27,21 +27,18 @@
 ```bash
 go build -o mdbox .
 ./mdbox -addr :8080 -data ./data
-# 浏览器打开 http://<server>:8080，用 admin / mdbox@111!!! 登录，或直接注册新用户
+# 浏览器打开 http://<server>:8080，注册第一个用户即可使用（没有预置账号）
 ```
 
 首次启动会在当前目录生成 **`config.yaml`** 与 **`users.yaml`**（均已在 `.gitignore` 中）：
 
 ```yaml
 # config.yaml
-admin:
-  username: admin
-  password: "mdbox@111!!!"        # 仅首次启动时用来初始化 users.yaml 里的第一个用户
 secret: "<随机生成：分享链接签名，改动会让所有已分享链接失效>"
 allow_register: true              # false 则关闭自助注册
 ```
 
-- `config.yaml` 里的 `admin` 只在 `users.yaml` 还没有该用户时写入一次，之后 admin 与普通用户没有区别（改密码不会再读这里）；
+- 没有预置/默认账号。若把 `allow_register` 设为 `false`，需先在开放注册时创建好用户，否则无人能登录；
 - `users.yaml` 是用户注册表（不用数据库）：用户名、**bcrypt 密码哈希**、该用户的 MCP token、创建时间。它放在 `data/` 之外，不会被 git 备份带走；
 - 用 `-config` / `-users` 指定两个文件的路径；模板见 `config.example.yaml`。
 

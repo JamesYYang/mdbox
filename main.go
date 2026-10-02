@@ -6,8 +6,7 @@
 //	mdbox -stdio -user alice -data ./data      # 以 MCP stdio 模式为 alice 运行（本地 agent 直连）
 //
 // 首次启动会在 -config 指定的路径（默认 ./config.yaml）生成配置文件，
-// 并用其中的 admin 账号在 -users 指定的 users.yaml 里初始化第一个用户。
-// 其他用户可自助注册；每个用户的文档在 {data}/users/{username}/ 下，
+// 不预置任何账号，用户通过 Web 自助注册（可用 allow_register 关闭）；每个用户的文档在 {data}/users/{username}/ 下，
 // 并各自拥有一个 MCP/API token（见 users.yaml 或 Web 的「MCP 接入」弹窗）。
 package main
 
@@ -54,13 +53,6 @@ func main() {
 	reg, err := users.Open(*usersPath, *dataDir)
 	if err != nil {
 		log.Fatalf("加载用户表失败: %v", err)
-	}
-	// 用 config.yaml 的 admin 初始化第一个用户；已存在则不动。
-	if err := users.ValidName(cfg.Admin.Username); err != nil {
-		log.Fatalf("config.yaml 的 admin.username 不合法: %v", err)
-	}
-	if err := reg.EnsureUser(cfg.Admin.Username, cfg.Admin.Password); err != nil {
-		log.Fatalf("初始化 %s 失败: %v", cfg.Admin.Username, err)
 	}
 
 	mcps := &mcpServers{reg: reg, m: map[string]*server.MCPServer{}}

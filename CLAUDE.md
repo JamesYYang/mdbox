@@ -21,7 +21,7 @@ go test ./...                            # only internal/users has tests
 
 Automated tests only cover `internal/users`. Everything else is verified manually: curl against the REST API and the MCP tools (see `docs/PRD.md` §7 for the smoke-test checklist).
 
-On first run a `config.yaml` is created (admin / `mdbox@111!!!`, random `secret`, `allow_register: true`) and the admin is seeded into `users.yaml`. Both are gitignored; `config.example.yaml` is the committed template.
+On first run a `config.yaml` is created (random `secret`, `allow_register: true`); there is no seeded/default account — users register themselves. Both are gitignored; `config.example.yaml` is the committed template.
 
 ## Architecture
 
@@ -32,7 +32,7 @@ Single Go module (`mdbox`), layered and wired entirely in `main.go` (flags, rout
 - `internal/api` — REST handlers over `*store.Store`
 - `internal/mcp` — MCP tool definitions over the same `*store.Store`
 - `internal/render` — goldmark Markdown → HTML
-- `internal/config` — `config.yaml` (bootstrap admin, share secret, `allow_register`)
+- `internal/config` — `config.yaml` (share secret, `allow_register`)
 - `internal/auth` — in-memory login sessions
 - `web/` — vanilla JS/CSS single-page UI; `web/vendor/html2pdf.bundle.min.js` is the only bundled third-party JS
 
@@ -50,7 +50,7 @@ Key facts that span multiple files:
 Multi-user, still no database. Both mechanisms resolve a request to a **username**, and everything after that only touches that user's own documents:
 
 - **Registry**: `internal/users` keeps `users.yaml` (path via `-users`, deliberately **outside** `data/` so password hashes/tokens never get git-backed-up): `username`, bcrypt `password_hash`, per-user `token`, `created`. Writes are tmp-file + rename under a mutex. `Registry.Store(name)` lazily builds one `store.Store` per user rooted at `data/users/{name}/`; it refuses unknown users so public paths can't create directories. Usernames are `^[a-z0-9][a-z0-9_-]{2,31}$` (they become directory names, so this is also the path-traversal guard), minus Windows reserved device names.
-- **Bootstrap**: on startup `main.go` calls `EnsureUser` with `config.yaml`'s `admin`; it only seeds when that user is absent, so later password edits in config have no effect. After that admin is a normal user. The old shared `token` / `-token` / `MDBOX_TOKEN` are gone.
+- **Bootstrap**: no default/seeded user; accounts come only from registration (`allow_register`). Old `config.yaml` files with an `admin:` block are still accepted (the field is ignored). The old shared `token` / `-token` / `MDBOX_TOKEN` are gone.
 - **Web UI**: `POST /api/login` / `POST /api/register` (the latter gated by `config.allow_register`, per-IP limit of 5/hour, then auto-login) issue an in-memory session in HttpOnly cookie `mdbox_session` (`internal/auth`); sessions are lost on restart. `GET /api/me` returns the user + their token; `POST /api/me/token` rotates it.
 - **Agents/scripts**: the user's own token as `Authorization: Bearer` (or `?token=`). `/mcp` in `main.go` maps token → user → a cached per-user `MCPServer`; no valid token means 401 (the old empty-token pass-through is gone). Note `/mcp` still builds a new `NewStreamableHTTPServer` per request.
 
