@@ -102,6 +102,8 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
   display: inline-flex; align-items: center; gap: 8px;
   font-weight: 700; letter-spacing: .5px; font-size: 17px;
 }
+.brand.clickable { cursor: pointer; }
+.brand.clickable:hover { color: var(--accent); }
 .logo { width: 26px; height: 26px; flex: none; object-fit: contain; display: block; }
 .logo-login { width: 36px; height: 36px; }
 .icon-btn {

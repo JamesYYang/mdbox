@@ -189,6 +189,20 @@
     else { history.replaceState(null, '', listUrl()); }
   }
 
+  // 点品牌回文档列表：等价「返回」，但在编辑态有未保存修改时先确认。
+  function goHome() {
+    if (state.mode === 'edit' && state.dirty && state.current) {
+      uiConfirm('有未保存的修改，确定放弃？', { title: '放弃修改', confirmText: '放弃', danger: true })
+        .then(function (ok) {
+          if (!ok) { return; }
+          state.dirty = false;
+          showContent('list'); leaveDocUrl(); loadList();
+        });
+      return;
+    }
+    showContent('list'); leaveDocUrl(); loadList();
+  }
+
   // 按当前地址显示对应页面：popstate 与首次进入都走这里。
   function route() {
     var id = hashDocId();
@@ -745,7 +759,8 @@
     $('btn-upload').addEventListener('click', function () { $('file-input').click(); });
     $('file-input').addEventListener('change', function () { uploadFiles(this.files); this.value = ''; });
 
-    $('p-back').addEventListener('click', function () { showContent('list'); leaveDocUrl(); loadList(); });
+    $('p-back').addEventListener('click', goHome);
+    $('app-brand').addEventListener('click', goHome);
     $('p-edit').addEventListener('click', enterEdit);
     $('p-share').addEventListener('click', openShare);
     $('p-download').addEventListener('click', function (e) {
@@ -885,6 +900,7 @@
 
   function bindShareEvents() {
     $('share-theme-btn').addEventListener('click', toggleTheme);
+    $('share-brand').addEventListener('click', function () { location.href = '/'; });
     $('share-download').addEventListener('click', function (e) {
       e.stopPropagation();
       $('share-download-menu').hidden = !$('share-download-menu').hidden;
