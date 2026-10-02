@@ -100,12 +100,14 @@
 | 项目 | 现在 | 窄屏改为 |
 | --- | --- | --- |
 | `.markdown` 字号/行高 | 15px / 1.6 | **16px / 1.75** |
-| `.pane-preview` 内边距 | `24px 32px` | **`16px`** |
-| `.share-inner` 内边距 | `40px 20px` | **`20px 16px`** |
+| `.pane-preview` 内边距 | `24px 32px` | **`16px 14px`** |
+| `.share-inner` 内边距 | `40px 20px` | **`20px 14px`** |
 | `.markdown table` | 无滚动容器 | `display: block; overflow-x: auto; max-width: 100%` |
 | `.markdown pre` | `overflow: auto` | 不变（已可横向滚动） |
 
 表格的取舍：`display:block` 让表格宽度按内容收缩、不再撑满容器。撑满需要 JS 包一层 `<div>`（约 6 行），先用纯 CSS 这版。
+
+> **选择器必须避开 `.pdf-export`。** PDF 导出的临时包裹层同时带 `pdf-export` 和 `markdown` 两个类（`web/style.css` 末尾），所以窄屏规则**不能写成裸 `.markdown`**，否则手机上导出 PDF 时表格会被加上 `display:block + overflow-x:auto`，html2canvas 按容器边缘裁切，正好重新引入 `CODEBUDDY.md` 里明确警告过的「右侧被静默裁掉」问题。实现时改用「阅读容器」限定：`.pane-preview .markdown` / `.preview` / `.share-inner .markdown`。
 
 ### 7. 触控尺寸与安全区
 

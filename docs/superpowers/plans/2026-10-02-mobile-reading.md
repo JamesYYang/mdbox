@@ -450,6 +450,8 @@ git commit -m "feat(web): 窄屏把账号操作移入抽屉底部（修改密码
   #view-list { padding: 12px 14px; }
   .listbar { gap: 8px; }
   .listbar .search { max-width: none; }
+  /* 基础规则是 repeat(auto-fill, minmax(280px,1fr))，在 600-720px 区间会出两列；
+     手机上锁定单列，避免卡片被压得过窄。 */
   .list { grid-template-columns: 1fr; }
 
   /* —— 文档工具条：预览条压成单行，标题占满剩余宽度并截断 —— */
@@ -511,20 +513,31 @@ git commit -m "feat(web): 窄屏隐藏编辑/新建/上传/删除入口，文档
 
 ```css
   /* —— 正文阅读排版 —— */
-  .markdown { font-size: 16px; line-height: 1.75; }
+  /* 注意：这里的选择器是「阅读容器」而不是裸 .markdown。
+     原因是 .pdf-export 的包裹层也带 markdown 类（见 web/style.css 末尾），
+     若写成 .markdown 会连带影响手机端导出 PDF —— 尤其 table 会被加上
+     display:block + overflow-x:auto，html2canvas 会按容器边缘裁切，正好
+     重新引入 web/CODEBUDDY.md 里明确警告过的「右侧被静默裁掉」问题。 */
+  .pane-preview .markdown, .preview, .share-inner .markdown { font-size: 16px; line-height: 1.75; }
   .pane-preview { padding: 16px 14px; }
   .preview { padding: 14px; }
 
-  .markdown pre { padding: 12px; border-radius: 8px; }
-  .markdown blockquote { padding: 2px 10px; }
+  .pane-preview pre, .preview pre, .share-inner pre { padding: 12px; border-radius: 8px; }
+  .pane-preview blockquote, .preview blockquote, .share-inner blockquote { padding: 2px 10px; }
 
   /* 宽表格在正文容器内横向滚动，不再把页面撑宽。
      多列时靠内在最小宽度触发滚动；少列长文本仍照常换行。 */
-  .markdown table { display: block; overflow-x: auto; max-width: 100%; }
-  .markdown th, .markdown td { padding: 6px 8px; }
+  .pane-preview table, .preview table, .share-inner table {
+    display: block; overflow-x: auto; max-width: 100%;
+  }
+  .pane-preview th, .pane-preview td,
+  .preview th, .preview td,
+  .share-inner th, .share-inner td { padding: 6px 8px; }
 ```
 
 > `table` 用 `display: block` 会让表格宽度按内容收缩、不再撑满容器。这是刻意的取舍：撑满需要 JS 包一层 `<div>`（约 6 行），收益不足以抵消复杂度。
+>
+> 选择器刻意不写裸 `.markdown`：必须避开 `.pdf-export`（它同时带 `pdf-export` 和 `markdown` 两个类）。详见上面注释。
 
 - [ ] **Step 2: 编译并跑既有检查**
 
@@ -583,11 +596,21 @@ func aVeryLongFunctionNameThatShouldScrollHorizontally(param1 string, param2 str
 6. 三级/二级标题层级清晰，引用块有左侧竖线。
 7. 长链接/长行内代码没有把页面撑宽（`.markdown` 已带 `overflow-wrap: break-word`）。
 
-- [ ] **Step 5: 浏览器验证 —— 编辑模式的实时预览（次要）**
+- [ ] **Step 5: 验证 PDF 导出未被波及（关键）**
+
+`.pdf-export` 包裹层同时带 `pdf-export` 和 `markdown` 两个类，是本任务最容易误伤的地方。在 **375 × 667** 下打开那篇测试文档 → 点 `下载 ▾` → `导出 PDF`：
+
+1. 生成的 PDF 里，那张 6 列表格**不能出现右侧被裁切**（这正是 `web/CODEBUDDY.md` 警告过的 html2canvas 裁切问题）。
+2. PDF 里表格边框正常（说明 `markdown` 类仍生效）。
+3. 用 DevTools 选中 `.pdf-export`（导出瞬间它会被临时插入 `document.body`，可在导出前于 Console 里执行一次 `document.body.insertAdjacentHTML('beforeend','<div class="pdf-export markdown"><table><tr><td>a</td></tr></table></div>')` 再检查），确认其内部 `table` 的 computed `display` 是 `table` 而不是 `block`。
+
+> 若第 3 条显示 `display: block`，说明选择器没避开 `.pdf-export`，必须回到 Step 1 修正。
+
+- [ ] **Step 6: 浏览器验证 —— 编辑模式的实时预览（次要）**
 
 窄屏下编辑入口已隐藏，本步骤只在桌面端做：切换 1440px → 打开文档 → 点 `编辑` → 右侧预览区排版不变。确认 Task 4 的 `.preview` 规则确实没有影响桌面。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 7: 提交**
 
 ```bash
 cd d:/code/mdbox
