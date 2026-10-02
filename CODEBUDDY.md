@@ -85,3 +85,5 @@ data/users/{username}/
 
 - Code comments and user-facing strings are in Chinese; match this when editing.
 - Product scope is deliberately narrow — see `docs/PRD.md` §2.3 "明确非目标" before adding features (no owned embeddings, no built-in chat UI, no DB, no WYSIWYG, no roles/permissions or cross-user sharing). New functionality should favor "agent writes in via MCP" over manual upload flows.
+
+The document page is routed by hash (`#/doc/<id>`) so the browser Back/Forward/reload work: `openDoc` pushes the entry, `popstate` → `route()` shows the doc or the list, and the in-app Back button calls `history.back()` when the entry was pushed (`state.pushed`) or `replaceState`s otherwise. Leaving an edit with unsaved changes via Back re-pushes the doc URL and asks for confirmation first. Share pages use the pathname (`/s/...`), not the hash.

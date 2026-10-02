@@ -14,7 +14,8 @@
     q: '',
     docs: [],
     current: null,
-    dirty: false
+    dirty: false,
+    pushed: false      // 当前文档页是否由我们 pushState 进来的（决定「返回」能否直接 history.back）
   };
   var previewTimer = null;
   var shareCtx = null;
@@ -114,8 +115,39 @@
     $('app').hidden = name !== 'app';
   }
 
-  function showLogin() {
+  // resetSession 清掉上一个用户留在内存与 DOM 里的一切（当前文档、编辑内容、列表、
+  // 筛选、搜索、侧栏、MCP token），防止切换账号后看到别人的内容。
+  function resetSession() {
     state.user = '';
+    state.mode = 'list';
+    state.status = 'active';
+    state.category = '';
+    state.tag = '';
+    state.q = '';
+    state.docs = [];
+    state.current = null;
+    state.dirty = false;
+    state.pushed = false;
+    clearTimeout(previewTimer);
+    $('view-list').hidden = false;
+    $('view-doc').hidden = true;
+    ['d-preview', 'e-preview', 'list', 'list-head', 'side-categories', 'side-tags', 'mcp-http', 'mcp-stdio'].forEach(function (id) {
+      if ($(id)) { $(id).innerHTML = ''; }
+    });
+    ['d-source', 'e-title', 'e-category', 'e-tags', 'search', 'share-link'].forEach(function (id) {
+      if ($(id)) { $(id).value = ''; }
+    });
+    ['p-title', 'd-meta', 'p-msg', 'e-msg'].forEach(function (id) {
+      if ($(id)) { $(id).textContent = ''; }
+    });
+    ['modal-mcp', 'modal-share', 'modal-dialog'].forEach(function (id) {
+      if ($(id)) { $(id).hidden = true; }
+    });
+  }
+
+  function showLogin() {
+    resetSession();
+    if (hashDocId()) { history.replaceState(null, '', listUrl()); }
     showView('login');
     var u = $('login-user');
     if (u) { u.focus(); }
@@ -127,7 +159,49 @@
     $('user-avatar').textContent = (user || 'A').charAt(0);
     showView('app');
     loadSidebar();
+    if (hashDocId()) { route(); } else { loadList(); }
+  }
+
+  /* ---------- 路由：文档页用 #/doc/<id>，让浏览器返回/前进/刷新可用 ---------- */
+
+  function hashDocId() {
+    var prefix = '#/doc/';
+    if (location.hash.indexOf(prefix) !== 0) { return ''; }
+    var id = location.hash.slice(prefix.length).split(/[/?#]/)[0];
+    try { return decodeURIComponent(id); } catch (e) { return ''; }
+  }
+
+  function listUrl() { return location.pathname + location.search; }
+
+  // 离开文档页回到列表地址：能回退就回退（不留多余历史），否则直接替换当前记录。
+  function leaveDocUrl() {
+    if (!hashDocId()) { return; }
+    if (state.pushed) { state.pushed = false; history.back(); }
+    else { history.replaceState(null, '', listUrl()); }
+  }
+
+  // 按当前地址显示对应页面：popstate 与首次进入都走这里。
+  function route() {
+    var id = hashDocId();
+    if (id) { openDoc(id); return; }
+    showContent('list');
     loadList();
+  }
+
+  function onPopState() {
+    if (!state.user) { return; }
+    if (state.mode === 'edit' && state.dirty && state.current) {
+      // 有未保存修改：先把地址栏拉回文档页，确认放弃后再真正后退。
+      history.pushState(null, '', '#/doc/' + encodeURIComponent(state.current.id));
+      uiConfirm('有未保存的修改，确定放弃？', { title: '放弃修改', confirmText: '放弃', danger: true })
+        .then(function (ok) {
+          if (!ok) { return; }
+          state.dirty = false;
+          history.back();
+        });
+      return;
+    }
+    route();
   }
 
   function showContent(mode) { // list | preview | edit
@@ -205,6 +279,7 @@
 
   function refresh() {
     showContent('list');
+    leaveDocUrl();
     loadSidebar();
     loadList();
   }
@@ -300,8 +375,17 @@
       $('p-title').textContent = data.doc.title || data.doc.id;
       $('d-meta').textContent = metaText(data.doc);
       $('p-share').classList.toggle('primary', !!data.doc.shared);
+      if (hashDocId() !== id) {
+        history.pushState(null, '', '#/doc/' + encodeURIComponent(id));
+        state.pushed = true;
+      }
       showContent('preview');
-    }).catch(function (e) { showContent('list'); msg('p-msg', e.message, true); });
+    }).catch(function (e) {
+      showContent('list');
+      if (hashDocId()) { history.replaceState(null, '', listUrl()); state.pushed = false; }
+      loadList();
+      if (state.user) { uiAlert(e.message || '打开文档失败', { title: '打开文档失败' }); }
+    });
   }
 
   function enterEdit() {
@@ -596,7 +680,7 @@
     $('btn-upload').addEventListener('click', function () { $('file-input').click(); });
     $('file-input').addEventListener('change', function () { uploadFiles(this.files); this.value = ''; });
 
-    $('p-back').addEventListener('click', function () { showContent('list'); loadList(); });
+    $('p-back').addEventListener('click', function () { showContent('list'); leaveDocUrl(); loadList(); });
     $('p-edit').addEventListener('click', enterEdit);
     $('p-share').addEventListener('click', openShare);
     $('p-download').addEventListener('click', function (e) {
@@ -768,6 +852,7 @@
     if (location.pathname.indexOf('/s/') === 0) { setupShare(); return; }
     bindEvents();
     bindLogin();
+    window.addEventListener('popstate', onPopState);
     api('/api/me').then(function (d) { enterApp(d.user); }).catch(showLogin);
   }
 

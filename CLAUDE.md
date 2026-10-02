@@ -64,6 +64,8 @@ Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST
 
 Markdown is rendered **server-side** (`internal/render`) so the frontend has zero dependencies and needs no CDN (target is the China network environment). `WithUnsafe()` permits inline HTML, so only expose this to trusted users. `web/app.js` is a single IIFE with a global `state` object. The content area defaults to read-only preview; Edit switches to source+preview panes whose live preview calls `POST /api/preview` (debounced 300ms).
 
+The document page is routed by hash (`#/doc/<id>`) so the browser Back/Forward/reload work: `openDoc` pushes the entry, `popstate` → `route()` shows the doc or the list, and the in-app Back button calls `history.back()` when the entry was pushed (`state.pushed`) or `replaceState`s otherwise. Leaving an edit with unsaved changes via Back re-pushes the doc URL and asks for confirmation first. Share pages use the pathname (`/s/...`), not the hash.
+
 PDF export (`exportPdf()` in `app.js`) uses html2pdf, a canvas slicer rather than a layout engine:
 
 - Pagination is controlled by `pagebreak: { mode: ['css','legacy'], avoid: [...] }` in `app.js` **plus** `break-inside`/`break-after` rules on `.pdf-export` children in `style.css`; both are needed to stop text lines being cut across pages.
