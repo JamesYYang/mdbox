@@ -19,14 +19,15 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/yaml.v3"
 
+	"mdbox/internal/i18n"
 	"mdbox/internal/store"
 )
 
 var (
-	ErrInvalidName  = errors.New("用户名只能包含小写字母、数字、下划线和连字符，长度 3-32")
-	ErrWeakPassword = errors.New("密码长度需要在 8-72 个字符之间")
-	ErrExists       = errors.New("用户名已被占用")
-	ErrNotFound     = errors.New("用户不存在")
+	ErrInvalidName  = errors.New(string(i18n.KeyUserNameInvalid))
+	ErrWeakPassword = errors.New(string(i18n.KeyUserPasswordWeak))
+	ErrExists       = errors.New(string(i18n.KeyUserExists))
+	ErrNotFound     = errors.New(string(i18n.KeyUserNotFound))
 )
 
 var nameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{2,31}$`)
@@ -164,7 +165,7 @@ func (r *Registry) ByToken(tok string) (*User, bool) {
 }
 
 // ErrWrongPassword 表示修改密码时旧密码不正确。
-var ErrWrongPassword = errors.New("旧密码不正确")
+var ErrWrongPassword = errors.New(string(i18n.KeyUserPasswordWrong))
 
 // ChangePassword 校验旧密码后改为新密码。
 func (r *Registry) ChangePassword(name, oldPassword, newPassword string) error {

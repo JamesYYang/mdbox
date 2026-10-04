@@ -21,9 +21,11 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"mdbox/internal/i18n"
 )
 
-var ErrNotFound = errors.New("doc not found")
+var ErrNotFound = errors.New(string(i18n.KeyDocNotFound))
 
 // Doc 是一篇文档的元数据（Content 仅在单篇读取时填充）。
 type Doc struct {
@@ -202,7 +204,7 @@ func (s *Store) Create(in CreateInput) (*Doc, error) {
 	now := time.Now()
 	d := &Doc{
 		ID:       id,
-		Title:    orDefault(in.Title, "未命名文档"),
+		Title:    orDefault(in.Title, "Untitled"),
 		Tags:     in.Tags,
 		Category: in.Category,
 		Source:   orDefault(in.Source, "manual"),
