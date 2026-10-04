@@ -14,21 +14,21 @@
   <div class="login-panel">
     <aside class="login-promo">
       <div class="login-promo-brand"><img class="logo logo-login" src="/mdbox.png" alt="MDBox">MDBox</div>
-      <p class="login-promo-lead">你的 Markdown 知识库，人写、Agent 也写</p>
+      <p class="login-promo-lead" data-i18n="login.promo.lead">你的 Markdown 知识库，人写、Agent 也写</p>
       <ul class="login-promo-list">
-        <li>纯 .md 文件存储，随时导出带走</li>
-        <li>一键只读分享</li>
+        <li data-i18n="login.promo.f1">纯 .md 文件存储，随时导出带走</li>
+        <li data-i18n="login.promo.f2">一键只读分享</li>
       </ul>
-      <p class="login-promo-mcp">让 Agent 通过 MCP 直接读写你的库</p>
+      <p class="login-promo-mcp" data-i18n="login.promo.mcp">让 Agent 通过 MCP 直接读写你的库</p>
     </aside>
     <form id="login-form" class="login-card">
-      <p class="login-tip" id="login-tip">请登录后使用</p>
-      <input id="login-user" placeholder="用户名" autocomplete="username">
-      <input id="login-pass" type="password" placeholder="密码" autocomplete="current-password">
-      <input id="login-pass2" type="password" placeholder="再次输入密码" autocomplete="new-password" hidden>
-      <button class="primary" type="submit" id="login-submit">登录</button>
+      <p class="login-tip" id="login-tip" data-i18n="login.tip">请登录后使用</p>
+      <input id="login-user" placeholder="用户名" autocomplete="username" data-i18n-placeholder="login.username">
+      <input id="login-pass" type="password" placeholder="密码" autocomplete="current-password" data-i18n-placeholder="login.password">
+      <input id="login-pass2" type="password" placeholder="再次输入密码" autocomplete="new-password" hidden data-i18n-placeholder="login.password2">
+      <button class="primary" type="submit" id="login-submit" data-i18n="login.submit">登录</button>
       <div id="login-msg" class="login-msg"></div>
-      <button type="button" class="ghost" id="login-switch">没有账号？注册</button>
+      <button type="button" class="ghost" id="login-switch" data-i18n="login.to_register">没有账号？注册</button>
     </form>
   </div>
 </section>
@@ -36,17 +36,17 @@
 <!-- 分享视图（匿名只读） -->
 <section id="view-share" class="share-wrap" hidden>
   <header class="topbar">
-    <div id="share-brand" class="brand clickable"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox<span class="brand-slogan">· 人写，Agent 也写</span></div>
-    <span class="share-brand-tip">只读分享</span>
+    <div id="share-brand" class="brand clickable"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox<span class="brand-slogan" data-i18n="brand.slogan">· 人写，Agent 也写</span></div>
+    <span class="share-brand-tip" data-i18n="share.brand_tip">只读分享</span>
     <div class="spacer"></div>
-    <button id="share-theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题">
+    <button id="share-theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题" data-i18n-title="action.theme" data-i18n-aria="action.theme">
       <span id="share-theme-icon">◐</span>
     </button>
     <div class="dropdown">
-      <button id="share-download" class="ghost">下载 ▾</button>
+      <button id="share-download" class="ghost" data-i18n="action.download">下载 ▾</button>
       <div id="share-download-menu" class="dropdown-menu" hidden>
-        <button id="share-dl-md">下载 Markdown (.md)</button>
-        <button id="share-dl-pdf">导出 PDF (.pdf)</button>
+        <button id="share-dl-md" data-i18n="action.dl_md">下载 Markdown (.md)</button>
+        <button id="share-dl-pdf" data-i18n="action.dl_pdf">导出 PDF (.pdf)</button>
       </div>
     </div>
   </header>
@@ -60,31 +60,38 @@
 <!-- 主应用 -->
 <div id="app" hidden>
   <header class="topbar">
-    <button id="side-toggle" class="icon-btn side-toggle" title="目录" aria-label="打开目录">
+    <button id="side-toggle" class="icon-btn side-toggle" title="目录" aria-label="打开目录" data-i18n-title="nav.title" data-i18n-aria="nav.open">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
         <path d="M3 6h18"/><path d="M3 12h18"/><path d="M3 18h18"/>
       </svg>
     </button>
     <div id="app-brand" class="brand clickable"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox</div>
     <div class="spacer"></div>
-    <button id="mcp-btn" class="icon-btn" title="MCP 接入" aria-label="MCP 接入">
+    <button id="mcp-btn" class="icon-btn" title="MCP 接入" aria-label="MCP 接入" data-i18n-title="action.mcp" data-i18n-aria="action.mcp">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/>
         <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>
       </svg>
     </button>
-    <button id="theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题">
+    <button id="theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题" data-i18n-title="action.theme" data-i18n-aria="action.theme">
       <span id="theme-icon">◐</span>
     </button>
+    <button id="lang-btn" class="icon-btn" title="Switch to English" aria-label="Switch to English">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M3 12h18"/>
+        <ellipse cx="12" cy="12" rx="4.2" ry="9"/>
+      </svg>
+    </button>
     <div class="dropdown user">
-      <button id="user-btn" class="user-trigger" aria-haspopup="true" aria-expanded="false" title="账号">
+      <button id="user-btn" class="user-trigger" aria-haspopup="true" aria-expanded="false" title="账号" data-i18n-title="action.account">
         <span class="avatar" id="user-avatar">A</span>
         <span id="user-name" class="user-name">admin</span>
         <span class="caret">▾</span>
       </button>
       <div id="user-menu" class="dropdown-menu" hidden>
-        <button id="pwd-btn" type="button">修改密码</button>
-        <button id="logout-btn" type="button">退出</button>
+        <button id="pwd-btn" type="button" data-i18n="action.change_password">修改密码</button>
+        <button id="logout-btn" type="button" data-i18n="action.logout">退出</button>
       </div>
     </div>
   </header>
@@ -92,17 +99,17 @@
   <div class="shell">
     <aside class="sidebar">
       <div class="side-section">
-        <div class="side-title">分类</div>
+        <div class="side-title" data-i18n="nav.categories">分类</div>
         <ul id="side-categories" class="side-list"></ul>
       </div>
       <div class="side-section">
-        <div class="side-title">标签</div>
+        <div class="side-title" data-i18n="nav.tags">标签</div>
         <ul id="side-tags" class="side-list"></ul>
       </div>
       <div class="side-section">
-        <div class="side-title">归档</div>
+        <div class="side-title" data-i18n="nav.archive">归档</div>
         <ul class="side-list">
-          <li id="side-archived" class="side-item" data-kind="archived">已归档文档</li>
+          <li id="side-archived" class="side-item" data-kind="archived" data-i18n="nav.archived_docs">已归档文档</li>
         </ul>
       </div>
       <div class="side-foot">
@@ -110,9 +117,9 @@
           <span class="avatar" id="side-avatar">A</span>
           <span id="side-user-name">admin</span>
         </div>
-        <button type="button" class="ghost side-foot-btn" id="side-mcp">MCP 接入</button>
-        <button type="button" class="ghost side-foot-btn" id="side-pwd">修改密码</button>
-        <button type="button" class="ghost side-foot-btn" id="side-logout">退出登录</button>
+        <button type="button" class="ghost side-foot-btn" id="side-mcp" data-i18n="action.mcp">MCP 接入</button>
+        <button type="button" class="ghost side-foot-btn" id="side-pwd" data-i18n="action.change_password">修改密码</button>
+        <button type="button" class="ghost side-foot-btn" id="side-logout" data-i18n="action.logout">退出登录</button>
       </div>
     </aside>
 
@@ -120,52 +127,52 @@
       <!-- 列表视图 -->
       <section id="view-list">
         <div class="listbar">
-          <input id="search" class="search" type="search" placeholder="搜索标题、标签、正文…" autocomplete="off">
-          <button id="btn-new" class="primary">新建</button>
-          <button id="btn-upload">上传 .md</button>
+          <input id="search" class="search" type="search" placeholder="搜索标题、标签、正文…" autocomplete="off" data-i18n-placeholder="list.search_placeholder">
+          <button id="btn-new" class="primary" data-i18n="action.new">新建</button>
+          <button id="btn-upload" data-i18n="action.upload">上传 .md</button>
           <input type="file" id="file-input" multiple accept=".md,.markdown,.txt" hidden>
         </div>
         <div id="list-head" class="list-head"></div>
         <div id="list" class="list"></div>
-        <div id="empty" class="empty" hidden>还没有文档。<span class="empty-wide">点「新建」写一篇，或把 .md 文件拖进这里。</span><span class="empty-narrow">可在电脑上新建，或让 agent 通过 MCP 写入。</span></div>
+        <div id="empty" class="empty" hidden><span data-i18n="list.empty_lead">还没有文档。</span><span class="empty-wide" data-i18n="list.empty_wide">点「新建」写一篇，或把 .md 文件拖进这里。</span><span class="empty-narrow" data-i18n="list.empty_narrow">可在电脑上新建，或让 agent 通过 MCP 写入。</span></div>
       </section>
 
       <!-- 文档视图 -->
       <section id="view-doc" hidden>
         <!-- 预览模式工具条 -->
         <div id="preview-bar" class="docbar">
-          <button id="p-back" class="ghost">返回</button>
+          <button id="p-back" class="ghost" data-i18n="action.back">返回</button>
           <span id="p-title" class="doc-title"></span>
           <span class="spacer"></span>
           <span id="p-msg" class="msg"></span>
-          <button id="p-share" class="ghost">分享</button>
+          <button id="p-share" class="ghost" data-i18n="action.share">分享</button>
           <div class="dropdown">
-            <button id="p-download" class="ghost">下载 ▾</button>
+            <button id="p-download" class="ghost" data-i18n="action.download">下载 ▾</button>
             <div id="download-menu" class="dropdown-menu" hidden>
-              <button id="dl-md">下载 Markdown (.md)</button>
-              <button id="dl-pdf">导出 PDF (.pdf)</button>
+              <button id="dl-md" data-i18n="action.dl_md">下载 Markdown (.md)</button>
+              <button id="dl-pdf" data-i18n="action.dl_pdf">导出 PDF (.pdf)</button>
             </div>
           </div>
-          <button id="p-edit" class="primary">编辑</button>
+          <button id="p-edit" class="primary" data-i18n="action.edit">编辑</button>
         </div>
 
         <!-- 编辑模式工具条 -->
         <div id="edit-bar" class="docbar" hidden>
-          <button id="e-cancel" class="ghost">取消</button>
-          <input id="e-title" class="title-input" placeholder="标题">
-          <input id="e-category" class="meta-input" placeholder="分类">
-          <input id="e-tags" class="meta-input" placeholder="标签，逗号分隔">
+          <button id="e-cancel" class="ghost" data-i18n="action.cancel">取消</button>
+          <input id="e-title" class="title-input" placeholder="标题" data-i18n-placeholder="edit.title_placeholder">
+          <input id="e-category" class="meta-input" placeholder="分类" data-i18n-placeholder="edit.category_placeholder">
+          <input id="e-tags" class="meta-input" placeholder="标签，逗号分隔" data-i18n-placeholder="edit.tags_placeholder">
           <span class="spacer"></span>
           <span id="e-msg" class="msg"></span>
-          <button id="e-archive" class="ghost">归档</button>
-          <button id="e-save" class="primary">保存</button>
+          <button id="e-archive" class="ghost" data-i18n="action.archive">归档</button>
+          <button id="e-save" class="primary" data-i18n="action.save">保存</button>
         </div>
 
         <div id="pane-preview" class="pane-preview">
           <article id="d-preview" class="markdown"></article>
         </div>
         <div id="pane-edit" class="panes" hidden>
-          <textarea id="d-source" class="source" spellcheck="false" placeholder="在这里写 Markdown…"></textarea>
+          <textarea id="d-source" class="source" spellcheck="false" placeholder="在这里写 Markdown…" data-i18n-placeholder="edit.source_placeholder"></textarea>
           <div id="e-preview" class="preview markdown"></div>
         </div>
         <div id="doc-foot" class="detailfoot"><span id="d-meta" class="meta"></span></div>
@@ -178,16 +185,16 @@
 <!-- MCP 接入弹窗 -->
 <div id="modal-mcp" class="modal" hidden>
   <div class="modal-card">
-    <div class="modal-head"><span>MCP 接入</span><button class="modal-close" data-close="modal-mcp">×</button></div>
+    <div class="modal-head"><span data-i18n="mcp.title">MCP 接入</span><button class="modal-close" data-close="modal-mcp">×</button></div>
     <div class="modal-body">
-      <p class="modal-tip">mdbox 内置 MCP 服务器，把下面配置加入任意支持 MCP 的 agent 即可读写知识库。</p>
-      <div class="code-label">HTTP（远程 agent；token 属于你的账号，只能访问你自己的文档）</div>
+      <p class="modal-tip" data-i18n="mcp.tip">mdbox 内置 MCP 服务器，把下面配置加入任意支持 MCP 的 agent 即可读写知识库。</p>
+      <div class="code-label" data-i18n="mcp.http_label">HTTP（远程 agent；token 属于你的账号，只能访问你自己的文档）</div>
       <pre class="code-block" id="mcp-http"></pre>
-      <button class="copy-btn" data-copy="mcp-http">复制</button>
-      <button class="ghost" id="mcp-reset">重置 token</button>
-      <div class="code-label">stdio（本机 agent 直连）</div>
+      <button class="copy-btn" data-copy="mcp-http" data-i18n="action.copy">复制</button>
+      <button class="ghost" id="mcp-reset" data-i18n="action.reset_token">重置 token</button>
+      <div class="code-label" data-i18n="mcp.stdio_label">stdio（本机 agent 直连）</div>
       <pre class="code-block" id="mcp-stdio"></pre>
-      <button class="copy-btn" data-copy="mcp-stdio">复制</button>
+      <button class="copy-btn" data-copy="mcp-stdio" data-i18n="action.copy">复制</button>
     </div>
   </div>
 </div>
@@ -195,13 +202,13 @@
 <!-- 修改密码弹窗 -->
 <div id="modal-pwd" class="modal" hidden>
   <div class="modal-card">
-    <div class="modal-head"><span>修改密码</span><button class="modal-close" data-close="modal-pwd">×</button></div>
+    <div class="modal-head"><span data-i18n="pwd.title">修改密码</span><button class="modal-close" data-close="modal-pwd">×</button></div>
     <form id="pwd-form" class="modal-body pwd-form">
-      <input id="pwd-old" type="password" placeholder="旧密码" autocomplete="current-password">
-      <input id="pwd-new" type="password" placeholder="新密码（8-72 位）" autocomplete="new-password">
-      <input id="pwd-new2" type="password" placeholder="再次输入新密码" autocomplete="new-password">
+      <input id="pwd-old" type="password" placeholder="旧密码" autocomplete="current-password" data-i18n-placeholder="pwd.old">
+      <input id="pwd-new" type="password" placeholder="新密码（8-72 位）" autocomplete="new-password" data-i18n-placeholder="pwd.new">
+      <input id="pwd-new2" type="password" placeholder="再次输入新密码" autocomplete="new-password" data-i18n-placeholder="pwd.new2">
       <div id="pwd-msg" class="login-msg"></div>
-      <button class="primary" type="submit">保存</button>
+      <button class="primary" type="submit" data-i18n="action.save">保存</button>
     </form>
   </div>
 </div>
@@ -209,17 +216,17 @@
 <!-- 分享弹窗 -->
 <div id="modal-share" class="modal" hidden>
   <div class="modal-card">
-    <div class="modal-head"><span>分享文档</span><button class="modal-close" data-close="modal-share">×</button></div>
+    <div class="modal-head"><span data-i18n="sharemodal.title">分享文档</span><button class="modal-close" data-close="modal-share">×</button></div>
     <div class="modal-body">
       <label class="switch-row">
         <input type="checkbox" id="share-toggle">
-        <span>开启分享：任何人凭链接可只读查看，无需登录，且无法编辑</span>
+        <span data-i18n="sharemodal.toggle">开启分享：任何人凭链接可只读查看，无需登录，且无法编辑</span>
       </label>
       <div id="share-link-wrap" hidden>
-        <div class="code-label">分享链接（固定地址，可随时关闭）</div>
+        <div class="code-label" data-i18n="sharemodal.link_label">分享链接（固定地址，可随时关闭）</div>
         <div class="share-copy">
           <input id="share-link" class="share-link" readonly>
-          <button class="copy-btn" data-copy-input="share-link">复制</button>
+          <button class="copy-btn" data-copy-input="share-link" data-i18n="action.copy">复制</button>
         </div>
       </div>
     </div>
@@ -229,17 +236,18 @@
 <!-- 通用确认/提示对话框（替代原生 confirm/alert） -->
 <div id="modal-dialog" class="modal" hidden>
   <div class="modal-card dlg-card">
-    <div class="modal-head"><span id="dlg-title">提示</span><button class="modal-close" data-close="modal-dialog">×</button></div>
+    <div class="modal-head"><span id="dlg-title" data-i18n="action.dialog_title">提示</span><button class="modal-close" data-close="modal-dialog">×</button></div>
     <div class="modal-body">
       <p id="dlg-msg" class="dlg-msg"></p>
       <div class="dlg-actions">
-        <button id="dlg-cancel" class="ghost">取消</button>
-        <button id="dlg-ok" class="primary">确定</button>
+        <button id="dlg-cancel" class="ghost" data-i18n="action.cancel">取消</button>
+        <button id="dlg-ok" class="primary" data-i18n="action.ok">确定</button>
       </div>
     </div>
   </div>
 </div>
 
+<script src="/i18n.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
