@@ -44,6 +44,54 @@
     updateThemeIcon();
   }
 
+  /* ---------- 语言 ---------- */
+
+  var refreshLoginMode = null; // 由 bindLogin 注入：切语言时按当前登录/注册态刷新提示
+
+  function refreshTitle() {
+    if (shareCtx) {
+      document.title = (shareCtx.title || I18N.t('share.title')) + ' · MDBox';
+    } else {
+      document.title = I18N.t('app.title');
+    }
+  }
+
+  function updateLangBtn() {
+    var btn = $('lang-btn');
+    if (!btn) { return; }
+    var label = I18N.lang() === 'zh' ? 'Switch to English' : '切换到中文';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+  }
+
+  // applyLang 在切换语言后重渲染当前视图；不触碰编辑态输入内容。
+  function applyLang() {
+    I18N.applyStatic();
+    refreshTitle();
+    updateLangBtn();
+    if (!$('view-login').hidden) {
+      if (refreshLoginMode) { refreshLoginMode(); }
+      return;
+    }
+    if (state.user) {
+      loadSidebar();
+      if (state.mode === 'list') {
+        renderListHead();
+        renderList();
+      } else if (state.mode === 'preview' && state.current) {
+        $('d-meta').textContent = metaText(state.current);
+      }
+    }
+  }
+
+  function bindLangButton() {
+    $('lang-btn').addEventListener('click', function () {
+      I18N.setLang(I18N.lang() === 'zh' ? 'en' : 'zh');
+      applyLang();
+    });
+    updateLangBtn();
+  }
+
   /* ---------- 基础工具 ---------- */
 
   function api(path, opts) {
@@ -51,11 +99,12 @@
     var init = { method: opts.method || 'GET' };
     if (opts.body) { init.body = opts.body; }
     init.headers = opts.headers || {};
+    init.headers['Accept-Language'] = I18N.lang();
     return fetch(path, init).then(function (res) {
       return res.json().catch(function () { return {}; }).then(function (data) {
         if (res.status === 401) {
           if (!opts.noAuthRedirect) { showLogin(); }
-          throw new Error(data.error || '需要登录');
+          throw new Error(data.error || I18N.t('error.need_login'));
         }
         if (!res.ok) { throw new Error(data.error || res.statusText); }
         return data;
@@ -84,7 +133,7 @@
   }
 
   function copyText(text, btn) {
-    var done = function () { flash(btn, '已复制'); };
+    var done = function () { flash(btn, I18N.t('copied')); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(done).catch(function () { fallbackCopy(text, done); });
     } else {
@@ -168,6 +217,7 @@
     state.user = user;
     renderUser(user);
     showView('app');
+    refreshTitle();
     loadSidebar();
     if (hashDocId()) { route(); } else { loadList(); }
   }
@@ -193,7 +243,7 @@
   // 点品牌回文档列表：等价「返回」，但在编辑态有未保存修改时先确认。
   function goHome() {
     if (state.mode === 'edit' && state.dirty && state.current) {
-      uiConfirm('有未保存的修改，确定放弃？', { title: '放弃修改', confirmText: '放弃', danger: true })
+      uiConfirm(I18N.t('doc.discard_confirm'), { title: I18N.t('doc.discard_title'), confirmText: I18N.t('doc.discard_ok'), danger: true })
         .then(function (ok) {
           if (!ok) { return; }
           state.dirty = false;
@@ -217,7 +267,7 @@
     if (state.mode === 'edit' && state.dirty && state.current) {
       // 有未保存修改：先把地址栏拉回文档页，确认放弃后再真正后退。
       history.pushState(null, '', '#/doc/' + encodeURIComponent(state.current.id));
-      uiConfirm('有未保存的修改，确定放弃？', { title: '放弃修改', confirmText: '放弃', danger: true })
+      uiConfirm(I18N.t('doc.discard_confirm'), { title: I18N.t('doc.discard_title'), confirmText: I18N.t('doc.discard_ok'), danger: true })
         .then(function (ok) {
           if (!ok) { return; }
           state.dirty = false;
@@ -274,7 +324,7 @@
     var activeNone = state.status === 'active' && !state.category && !state.tag;
     var catEl = $('side-categories');
     catEl.innerHTML = '';
-    catEl.appendChild(sideItem('全部文档', 'all', '', null, activeNone));
+    catEl.appendChild(sideItem(I18N.t('nav.all_docs'), 'all', '', null, activeNone));
     Object.keys(cats).sort(function (a, b) { return cats[b] - cats[a]; }).forEach(function (c) {
       if (!c) { return; }
       catEl.appendChild(sideItem(c, 'category', c, cats[c], state.category === c));
@@ -286,7 +336,7 @@
     if (!keys.length) {
       var e = document.createElement('li');
       e.className = 'side-empty';
-      e.textContent = '暂无标签';
+      e.textContent = I18N.t('nav.no_tags');
       tagEl.appendChild(e);
     }
     keys.forEach(function (t) {
@@ -332,11 +382,11 @@
 
   function renderListHead() {
     var bits = [];
-    if (state.status === 'archived') { bits.push('已归档'); }
-    if (state.category) { bits.push('分类：' + state.category); }
-    if (state.tag) { bits.push('标签：' + state.tag); }
-    if (state.q) { bits.push('搜索：' + state.q); }
-    $('list-head').textContent = (bits.length ? bits.join(' · ') + ' · ' : '') + state.docs.length + ' 篇';
+    if (state.status === 'archived') { bits.push(I18N.t('list.status_archived')); }
+    if (state.category) { bits.push(I18N.t('list.filter_category', { v: state.category })); }
+    if (state.tag) { bits.push(I18N.t('list.filter_tag', { v: state.tag })); }
+    if (state.q) { bits.push(I18N.t('list.filter_search', { v: state.q })); }
+    $('list-head').textContent = (bits.length ? bits.join(' · ') + ' · ' : '') + I18N.t('list.count', { n: state.docs.length });
   }
 
   function renderList() {
@@ -357,8 +407,8 @@
       var del = document.createElement('button');
       del.type = 'button';
       del.className = 'card-del';
-      del.title = '删除';
-      del.setAttribute('aria-label', '删除文档');
+      del.title = I18N.t('list.delete_title');
+      del.setAttribute('aria-label', I18N.t('list.delete_aria'));
       del.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
         '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
       del.onclick = function (e) { e.stopPropagation(); deleteDoc(d.id, d.title || d.id); };
@@ -380,8 +430,8 @@
       var row = [fmtTime(d.updated)];
       if (d.category) { row.push(d.category); }
       if (d.source) { row.push(d.source); }
-      if (d.shared) { row.push('已分享'); }
-      row.push(Math.max(1, Math.round((d.size || 0) / 100)) / 10 + 'k 字');
+      if (d.shared) { row.push(I18N.t('list.shared')); }
+      row.push(I18N.t('list.size', { n: Math.max(1, Math.round((d.size || 0) / 100)) / 10 }));
       m.textContent = row.join(' · ');
       card.appendChild(m);
 
@@ -393,7 +443,7 @@
 
   function metaText(d) {
     var bits = [d.id, fmtTime(d.created), fmtTime(d.updated)];
-    if (d.shared) { bits.push('已开启分享'); }
+    if (d.shared) { bits.push(I18N.t('doc.shared_on')); }
     return bits.filter(Boolean).join(' · ');
   }
 
@@ -415,7 +465,7 @@
       showContent('list');
       if (hashDocId()) { history.replaceState(null, '', listUrl()); state.pushed = false; }
       loadList();
-      if (state.user) { uiAlert(e.message || '打开文档失败', { title: '打开文档失败' }); }
+      if (state.user) { uiAlert(e.message || I18N.t('doc.open_failed'), { title: I18N.t('doc.open_failed') }); }
     });
   }
 
@@ -433,7 +483,7 @@
 
   function cancelEdit() {
     if (!state.dirty) { showContent('preview'); return; }
-    uiConfirm('有未保存的修改，确定放弃？', { title: '放弃修改', confirmText: '放弃', danger: true })
+    uiConfirm(I18N.t('doc.discard_confirm'), { title: I18N.t('doc.discard_title'), confirmText: I18N.t('doc.discard_ok'), danger: true })
       .then(function (ok) {
         if (!ok) { return; }
         state.dirty = false;
@@ -450,7 +500,7 @@
       tags: splitTags($('e-tags').value),
       category: $('e-category').value
     });
-    msg('e-msg', '保存中…');
+    msg('e-msg', I18N.t('doc.saving'));
     return api('/api/docs/' + id, { method: 'PUT', body: body, headers: { 'Content-Type': 'application/json' } })
       .then(function () { state.dirty = false; return openDoc(id); })
       .catch(function (e) { msg('e-msg', e.message, true); });
@@ -458,18 +508,18 @@
 
   // deleteDoc 彻底删除（不可恢复），与 archiveDoc 的软删除不同。
   function deleteDoc(id, title) {
-    uiConfirm('确定要永久删除「' + title + '」吗？\n\n此操作不可恢复，文件会被真正删除（如果只是想暂时收起来，请改用「归档」）。',
-      { title: '删除文档', confirmText: '删除', danger: true })
+    uiConfirm(I18N.t('doc.delete_confirm', { title: title }),
+      { title: I18N.t('doc.delete_title'), confirmText: I18N.t('action.delete'), danger: true })
       .then(function (ok) {
         if (!ok) { return; }
         api('/api/docs/' + id, { method: 'DELETE' })
           .then(function () { loadSidebar(); loadList(); })
-          .catch(function (e) { uiAlert('删除失败：' + e.message, { title: '删除失败' }); });
+          .catch(function (e) { uiAlert(I18N.t('doc.delete_failed', { msg: e.message }), { title: I18N.t('doc.delete_failed_title') }); });
       });
   }
 
   function createDoc() {
-    var body = JSON.stringify({ title: '未命名文档', content: '# 未命名文档\n\n', source: 'web' });
+    var body = JSON.stringify({ title: I18N.t('doc.untitled'), content: '# ' + I18N.t('doc.untitled') + '\n\n', source: 'web' });
     return api('/api/docs', { method: 'POST', body: body, headers: { 'Content-Type': 'application/json' } })
       .then(function (data) { loadSidebar(); return openDoc(data.doc.id).then(enterEdit); })
       .catch(function (e) { msg('p-msg', e.message, true); });
@@ -477,7 +527,7 @@
 
   function archiveDoc() {
     if (!state.current) { return; }
-    uiConfirm('归档后可在左侧「归档」中找回，确定归档？', { title: '归档文档', confirmText: '归档' })
+    uiConfirm(I18N.t('doc.archive_confirm'), { title: I18N.t('doc.archive_title'), confirmText: I18N.t('action.archive') })
       .then(function (ok) {
         if (!ok) { return; }
         api('/api/docs/' + state.current.id + '/archive', { method: 'POST' })
@@ -491,9 +541,9 @@
   function downloadMd() {
     if (!state.current) { return; }
     var id = state.current.id, title = state.current.title || 'doc';
-    fetch('/api/docs/' + id + '/download')
+    fetch('/api/docs/' + id + '/download', { headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) {
-        if (!r.ok) { throw new Error('下载失败'); }
+        if (!r.ok) { throw new Error(I18N.t('share.download_failed')); }
         return r.blob();
       })
       .then(function (blob) {
@@ -515,7 +565,7 @@
       var s = document.createElement('script');
       s.src = '/vendor/html2pdf.bundle.min.js';
       s.onload = function () { resolve(); };
-      s.onerror = function () { pdfLibPromise = null; reject(new Error('加载 PDF 组件失败，请检查网络')); };
+      s.onerror = function () { pdfLibPromise = null; reject(new Error(I18N.t('pdf.load_failed'))); };
       document.head.appendChild(s);
     });
     return pdfLibPromise;
@@ -551,7 +601,7 @@
 
   function downloadPdf() {
     if (!state.current) { return; }
-    msg('p-msg', '正在生成 PDF…');
+    msg('p-msg', I18N.t('pdf.generating'));
     exportPdf($('d-preview'), state.current.title)
       .catch(function (e) { msg('p-msg', e.message, true); });
   }
@@ -591,7 +641,7 @@
       loadList();
     }).catch(function (e) {
       $('share-toggle').checked = !on;
-      uiAlert('操作失败：' + e.message, { title: '操作失败' });
+      uiAlert(I18N.t('error.op_failed', { msg: e.message }), { title: I18N.t('error.op_failed_title') });
     });
   }
 
@@ -620,10 +670,10 @@
   // openDialog 返回 Promise：确认 true / 取消(含 Esc、点遮罩、点×) false
   function openDialog(opts) {
     opts = opts || {};
-    $('dlg-title').textContent = opts.title || '提示';
+    $('dlg-title').textContent = opts.title || I18N.t('action.dialog_title');
     $('dlg-msg').textContent = opts.message || '';
-    $('dlg-ok').textContent = opts.confirmText || '确定';
-    $('dlg-cancel').textContent = opts.cancelText || '取消';
+    $('dlg-ok').textContent = opts.confirmText || I18N.t('action.ok');
+    $('dlg-cancel').textContent = opts.cancelText || I18N.t('action.cancel');
     $('dlg-cancel').hidden = !!opts.alertOnly;
     $('dlg-ok').className = 'primary' + (opts.danger ? ' danger' : '');
     openModal('modal-dialog');
@@ -641,7 +691,7 @@
     opts = opts || {};
     opts.message = message;
     opts.alertOnly = true;
-    if (!opts.confirmText) { opts.confirmText = '知道了'; }
+    if (!opts.confirmText) { opts.confirmText = I18N.t('action.got_it'); }
     return openDialog(opts);
   }
 
@@ -678,15 +728,15 @@
     api('/api/me').then(function (d) {
       renderMcp(d.token);
       openModal('modal-mcp');
-    }).catch(function (err) { uiAlert(err.message || '获取 token 失败'); });
+    }).catch(function (err) { uiAlert(err.message || I18N.t('mcp.token_failed')); });
   }
 
   function resetMcpToken() {
-    uiConfirm('重置后旧 token 立即失效，已配置的 agent 需要换成新 token。继续？').then(function (ok) {
+    uiConfirm(I18N.t('mcp.reset_confirm')).then(function (ok) {
       if (!ok) { return; }
       api('/api/me/token', { method: 'POST' }).then(function (d) {
         renderMcp(d.token);
-      }).catch(function (err) { uiAlert(err.message || '重置失败'); });
+      }).catch(function (err) { uiAlert(err.message || I18N.t('mcp.reset_failed')); });
     });
   }
 
@@ -700,15 +750,15 @@
   function submitPwd(e) {
     e.preventDefault();
     var oldPwd = $('pwd-old').value, newPwd = $('pwd-new').value;
-    if (newPwd !== $('pwd-new2').value) { msg('pwd-msg', '两次输入的新密码不一致', true); return; }
+    if (newPwd !== $('pwd-new2').value) { msg('pwd-msg', I18N.t('pwd.mismatch'), true); return; }
     api('/api/me/password', {
       method: 'POST',
       body: JSON.stringify({ old: oldPwd, new: newPwd }),
       headers: { 'Content-Type': 'application/json' }
     }).then(function () {
       closeModal('modal-pwd');
-      uiAlert('密码已修改，其他设备上的登录已失效。');
-    }).catch(function (err) { msg('pwd-msg', err.message || '修改失败', true); });
+      uiAlert(I18N.t('pwd.changed'));
+    }).catch(function (err) { msg('pwd-msg', err.message || I18N.t('pwd.failed'), true); });
   }
 
   function doLogout() {
@@ -721,14 +771,14 @@
     if (!files || !files.length) { return; }
     var fd = new FormData();
     Array.prototype.forEach.call(files, function (f) { fd.append('files', f); });
-    fetch('/api/upload', { method: 'POST', body: fd })
+    fetch('/api/upload', { method: 'POST', body: fd, headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) { return r.json(); })
       .then(function (d) {
         if (d && d.error) { throw new Error(d.error); }
         loadSidebar();
         loadList();
       })
-      .catch(function (e) { uiAlert('上传失败：' + e.message, { title: '上传失败' }); });
+      .catch(function (e) { uiAlert(I18N.t('upload.failed', { msg: e.message }), { title: I18N.t('upload.failed_title') }); });
   }
 
   /* ---------- 事件绑定 ---------- */
@@ -858,19 +908,20 @@
     var registering = false;
     function setMode(reg) {
       registering = reg;
-      $('login-tip').textContent = reg ? '注册新账号' : '请登录后使用';
+      $('login-tip').textContent = reg ? I18N.t('login.tip_register') : I18N.t('login.tip');
       $('login-pass2').hidden = !reg;
       $('login-pass').autocomplete = reg ? 'new-password' : 'current-password';
-      $('login-submit').textContent = reg ? '注册' : '登录';
-      $('login-switch').textContent = reg ? '已有账号？登录' : '没有账号？注册';
+      $('login-submit').textContent = reg ? I18N.t('login.register') : I18N.t('login.submit');
+      $('login-switch').textContent = reg ? I18N.t('login.to_login') : I18N.t('login.to_register');
       $('login-msg').textContent = '';
     }
+    refreshLoginMode = function () { setMode(registering); };
     $('login-switch').addEventListener('click', function () { setMode(!registering); });
     $('login-form').addEventListener('submit', function (e) {
       e.preventDefault();
       $('login-msg').textContent = '';
       if (registering && $('login-pass').value !== $('login-pass2').value) {
-        $('login-msg').textContent = '两次输入的密码不一致';
+        $('login-msg').textContent = I18N.t('auth.register_mismatch');
         return;
       }
       api(registering ? '/api/register' : '/api/login', {
@@ -884,7 +935,7 @@
         setMode(false);
         enterApp(d.user);
       }).catch(function (err) {
-        $('login-msg').textContent = err.message || (registering ? '注册失败' : '登录失败');
+        $('login-msg').textContent = err.message || (registering ? I18N.t('auth.register_failed') : I18N.t('auth.login_failed'));
       });
     });
   }
@@ -896,17 +947,17 @@
     bindShareEvents();
     var parts = location.pathname.split('/').filter(Boolean); // ['s', user, id, sig]
     var content = $('share-content');
-    if (parts.length < 4) { content.innerHTML = '<p>分享链接无效。</p>'; return; }
+    if (parts.length < 4) { content.innerHTML = '<p>' + I18N.t('share.invalid') + '</p>'; return; }
     shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '' };
-    fetch(shareApi())
+    fetch(shareApi(), { headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
-        if (!res.ok || res.data.error) { content.innerHTML = '<p>分享不存在或已失效。</p>'; return; }
+        if (!res.ok || res.data.error) { content.innerHTML = '<p>' + I18N.t('share.gone') + '</p>'; return; }
         shareCtx.title = res.data.doc.title || '';
         content.innerHTML = res.data.html || '';
-        document.title = (shareCtx.title || '分享') + ' · MDBox';
+        refreshTitle();
       })
-      .catch(function () { content.innerHTML = '<p>加载失败。</p>'; });
+      .catch(function () { content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>'; });
   }
 
   function shareApi() {
@@ -931,8 +982,8 @@
 
   function shareDownloadMd() {
     if (!shareCtx) { return; }
-    fetch(shareApi() + '/download')
-      .then(function (r) { if (!r.ok) { throw new Error('下载失败'); } return r.blob(); })
+    fetch(shareApi() + '/download', { headers: { 'Accept-Language': I18N.lang() } })
+      .then(function (r) { if (!r.ok) { throw new Error(I18N.t('share.download_failed')); } return r.blob(); })
       .then(function (blob) {
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -944,7 +995,7 @@
 
   function shareDownloadPdf() {
     exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function (e) {
-      uiAlert(e.message || '导出失败，请重试', { title: '导出失败' });
+      uiAlert(e.message || I18N.t('pdf.export_failed'));
     });
   }
 
@@ -952,9 +1003,12 @@
 
   function boot() {
     initTheme();
+    I18N.applyStatic();
     if (location.pathname.indexOf('/s/') === 0) { setupShare(); return; }
     bindEvents();
     bindLogin();
+    bindLangButton();
+    refreshTitle();
     window.addEventListener('popstate', onPopState);
     api('/api/me').then(function (d) { enterApp(d.user); }).catch(showLogin);
   }
