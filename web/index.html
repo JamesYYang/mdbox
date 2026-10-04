@@ -11,6 +11,13 @@
 
 <!-- 登录视图 -->
 <section id="view-login" class="login-wrap" hidden>
+  <button id="login-lang-btn" class="icon-btn login-lang" title="Switch to English" aria-label="Switch to English">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M3 12h18"/>
+      <ellipse cx="12" cy="12" rx="4.2" ry="9"/>
+    </svg>
+  </button>
   <div class="login-panel">
     <aside class="login-promo">
       <div class="login-promo-brand"><img class="logo logo-login" src="/mdbox.png" alt="MDBox">MDBox</div>
@@ -41,6 +48,13 @@
     <div class="spacer"></div>
     <button id="share-theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题" data-i18n-title="action.theme" data-i18n-aria="action.theme">
       <span id="share-theme-icon">◐</span>
+    </button>
+    <button id="share-lang-btn" class="icon-btn" title="Switch to English" aria-label="Switch to English">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M3 12h18"/>
+        <ellipse cx="12" cy="12" rx="4.2" ry="9"/>
+      </svg>
     </button>
     <div class="dropdown">
       <button id="share-download" class="ghost" data-i18n="action.download">下载 ▾</button>
@@ -119,7 +133,7 @@
         </div>
         <button type="button" class="ghost side-foot-btn" id="side-mcp" data-i18n="action.mcp">MCP 接入</button>
         <button type="button" class="ghost side-foot-btn" id="side-pwd" data-i18n="action.change_password">修改密码</button>
-        <button type="button" class="ghost side-foot-btn" id="side-logout" data-i18n="action.logout">退出登录</button>
+        <button type="button" class="ghost side-foot-btn" id="side-logout" data-i18n="nav.logout">退出登录</button>
       </div>
     </aside>
 

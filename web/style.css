@@ -66,8 +66,9 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 /* ---------- 登录 ---------- */
 .login-wrap {
   min-height: 100vh; min-height: 100dvh; display: flex; align-items: center; justify-content: center;
-  background: var(--bg); padding: 20px;
+  background: var(--bg); padding: 20px; position: relative;
 }
+.login-lang { position: absolute; top: 16px; right: 16px; }
 .login-panel {
   display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 40px; align-items: center;
   width: 100%; max-width: 780px;

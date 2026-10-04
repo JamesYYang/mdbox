@@ -61,6 +61,7 @@
       'nav.archived_docs': '已归档文档',
       'nav.all_docs': '全部文档',
       'nav.no_tags': '暂无标签',
+      'nav.logout': '退出登录',
 
       'list.search_placeholder': '搜索标题、标签、正文…',
       'list.empty_lead': '还没有文档。',
@@ -98,6 +99,7 @@
       'pdf.generating': '正在生成 PDF…',
       'pdf.load_failed': '加载 PDF 组件失败，请检查网络',
       'pdf.export_failed': '导出失败，请重试',
+      'pdf.export_failed_title': '导出失败',
 
       'mcp.title': 'MCP 接入',
       'mcp.tip': 'mdbox 内置 MCP 服务器，把下面配置加入任意支持 MCP 的 agent 即可读写知识库。',
@@ -187,6 +189,7 @@
       'nav.archived_docs': 'Archived documents',
       'nav.all_docs': 'All documents',
       'nav.no_tags': 'No tags yet',
+      'nav.logout': 'Sign out',
 
       'list.search_placeholder': 'Search titles, tags, and content…',
       'list.empty_lead': 'No documents yet.',
@@ -224,6 +227,7 @@
       'pdf.generating': 'Generating PDF…',
       'pdf.load_failed': 'Failed to load the PDF component, please check your network',
       'pdf.export_failed': 'Export failed, please try again',
+      'pdf.export_failed_title': 'Export failed',
 
       'mcp.title': 'MCP access',
       'mcp.tip': 'mdbox has a built-in MCP server. Add the config below to any MCP-capable agent to read and write your knowledge base.',

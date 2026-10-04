@@ -57,11 +57,13 @@
   }
 
   function updateLangBtn() {
-    var btn = $('lang-btn');
-    if (!btn) { return; }
     var label = I18N.lang() === 'zh' ? 'Switch to English' : '切换到中文';
-    btn.title = label;
-    btn.setAttribute('aria-label', label);
+    ['lang-btn', 'login-lang-btn', 'share-lang-btn'].forEach(function (id) {
+      var btn = $(id);
+      if (!btn) { return; }
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    });
   }
 
   // applyLang 在切换语言后重渲染当前视图；不触碰编辑态输入内容。
@@ -85,9 +87,13 @@
   }
 
   function bindLangButton() {
-    $('lang-btn').addEventListener('click', function () {
-      I18N.setLang(I18N.lang() === 'zh' ? 'en' : 'zh');
-      applyLang();
+    ['lang-btn', 'login-lang-btn', 'share-lang-btn'].forEach(function (id) {
+      var btn = $(id);
+      if (!btn) { return; }
+      btn.addEventListener('click', function () {
+        I18N.setLang(I18N.lang() === 'zh' ? 'en' : 'zh');
+        applyLang();
+      });
     });
     updateLangBtn();
   }
@@ -995,7 +1001,7 @@
 
   function shareDownloadPdf() {
     exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function (e) {
-      uiAlert(e.message || I18N.t('pdf.export_failed'));
+      uiAlert(e.message || I18N.t('pdf.export_failed'), { title: I18N.t('pdf.export_failed_title') });
     });
   }
 
@@ -1004,10 +1010,10 @@
   function boot() {
     initTheme();
     I18N.applyStatic();
+    bindLangButton();
     if (location.pathname.indexOf('/s/') === 0) { setupShare(); return; }
     bindEvents();
     bindLogin();
-    bindLangButton();
     refreshTitle();
     window.addEventListener('popstate', onPopState);
     api('/api/me').then(function (d) { enterApp(d.user); }).catch(showLogin);
