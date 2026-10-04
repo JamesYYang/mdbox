@@ -144,6 +144,7 @@
     ['modal-mcp', 'modal-share', 'modal-dialog'].forEach(function (id) {
       if ($(id)) { $(id).hidden = true; }
     });
+    toggleUserMenu(false);
   }
 
   function showLogin() {
@@ -665,6 +666,14 @@
     $('mcp-stdio').textContent = JSON.stringify(stdio, null, 2);
   }
 
+  // 顶栏账号下拉菜单
+  function toggleUserMenu(force) {
+    var menu = $('user-menu');
+    var open = (typeof force === 'boolean') ? force : menu.hidden;
+    menu.hidden = !open;
+    $('user-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
   function openMcp() {
     api('/api/me').then(function (d) {
       renderMcp(d.token);
@@ -733,9 +742,13 @@
     $('theme-btn').addEventListener('click', toggleTheme);
     $('mcp-btn').addEventListener('click', openMcp);
     $('mcp-reset').addEventListener('click', resetMcpToken);
-    $('pwd-btn').addEventListener('click', openPwd);
+    $('user-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      toggleUserMenu();
+    });
+    $('pwd-btn').addEventListener('click', function () { toggleUserMenu(false); openPwd(); });
     $('pwd-form').addEventListener('submit', submitPwd);
-    $('logout-btn').addEventListener('click', doLogout);
+    $('logout-btn').addEventListener('click', function () { toggleUserMenu(false); doLogout(); });
     // 窄屏：同样的操作放在抽屉底部，先收起抽屉再动作，避免弹窗盖在打开的抽屉上
     $('side-mcp').addEventListener('click', function () { closeNav(); openMcp(); });
     $('side-pwd').addEventListener('click', function () { closeNav(); openPwd(); });
@@ -806,13 +819,15 @@
       if (cp) { copyText($(cp.getAttribute('data-copy')).textContent, cp); return; }
       var ci = e.target.closest && e.target.closest('[data-copy-input]');
       if (ci) { copyText($(ci.getAttribute('data-copy-input')).value, ci); return; }
-      // 点击空白收起下载菜单
+      // 点击空白收起下载菜单 / 账号菜单
       var menu = $('download-menu');
       if (menu && !menu.hidden) { menu.hidden = true; }
+      toggleUserMenu(false);
     });
 
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        if (!$('user-menu').hidden) { toggleUserMenu(false); return; }
         if (!$('modal-dialog').hidden) { closeDialog(false); return; }
         var modalIds = ['modal-mcp', 'modal-share'];
         var openModalId = modalIds.filter(function (id) { return !$(id).hidden; })[0];

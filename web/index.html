@@ -69,19 +69,23 @@
     <div class="spacer"></div>
     <button id="mcp-btn" class="icon-btn" title="MCP 接入" aria-label="MCP 接入">
       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2v5"/><path d="M12 17v5"/><path d="M4.9 4.9l3.5 3.5"/><path d="M15.6 15.6l3.5 3.5"/>
-        <path d="M2 12h5"/><path d="M17 12h5"/><path d="M4.9 19.1l3.5-3.5"/><path d="M15.6 8.4l3.5-3.5"/>
-        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/>
+        <path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>
       </svg>
     </button>
     <button id="theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题">
       <span id="theme-icon">◐</span>
     </button>
-    <div class="user">
-      <span class="avatar" id="user-avatar">A</span>
-      <span id="user-name" class="user-name">admin</span>
-      <button id="pwd-btn" class="ghost">修改密码</button>
-      <button id="logout-btn" class="ghost">退出</button>
+    <div class="dropdown user">
+      <button id="user-btn" class="user-trigger" aria-haspopup="true" aria-expanded="false" title="账号">
+        <span class="avatar" id="user-avatar">A</span>
+        <span id="user-name" class="user-name">admin</span>
+        <span class="caret">▾</span>
+      </button>
+      <div id="user-menu" class="dropdown-menu" hidden>
+        <button id="pwd-btn" type="button">修改密码</button>
+        <button id="logout-btn" type="button">退出</button>
+      </div>
     </div>
   </header>
 
