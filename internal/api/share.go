@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"mdbox/internal/i18n"
 	"mdbox/internal/render"
 	"mdbox/internal/store"
 )
@@ -32,13 +33,13 @@ func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 		Shared bool `json:"shared"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	id := r.PathValue("id")
 	d, err := stOf(r).SetShared(id, in.Shared)
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	resp := map[string]any{"shared": d.Shared}
@@ -69,7 +70,7 @@ func (s *Server) sharedDoc(r *http.Request) (*store.Doc, bool) {
 func (s *Server) publicDoc(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.sharedDoc(r)
 	if !ok {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
+		writeErr(w, r, http.StatusNotFound, string(i18n.KeyShareGone))
 		return
 	}
 	html, _ := render.Markdown(d.Content)
@@ -80,7 +81,7 @@ func (s *Server) publicDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) publicDownload(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.sharedDoc(r)
 	if !ok {
-		writeErr(w, http.StatusNotFound, "分享不存在或已失效")
+		writeErr(w, r, http.StatusNotFound, string(i18n.KeyShareGone))
 		return
 	}
 	writeMarkdown(w, d)

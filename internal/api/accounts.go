@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"mdbox/internal/auth"
+	"mdbox/internal/i18n"
 	"mdbox/internal/users"
 )
 
@@ -74,12 +75,12 @@ func (s *Server) startSession(w http.ResponseWriter, name string) {
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	var in credentials
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	u, ok := s.reg.Authenticate(strings.TrimSpace(in.Username), in.Password)
 	if !ok {
-		writeErr(w, http.StatusUnauthorized, "用户名或密码错误")
+		writeErr(w, r, http.StatusUnauthorized, string(i18n.KeyBadCredentials))
 		return
 	}
 	s.startSession(w, u.Username)
@@ -89,28 +90,28 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 // register 自助注册：校验用户名/密码，生成该用户的 MCP token，并直接登录。
 func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 	if !s.cfg.RegisterOpen() {
-		writeErr(w, http.StatusForbidden, "注册已关闭")
+		writeErr(w, r, http.StatusForbidden, string(i18n.KeyRegisterClosed))
 		return
 	}
 	var in credentials
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	if !s.regLimit.allow(clientIP(r)) {
-		writeErr(w, http.StatusTooManyRequests, "注册过于频繁，请稍后再试")
+		writeErr(w, r, http.StatusTooManyRequests, string(i18n.KeyRegisterLimited))
 		return
 	}
 	u, err := s.reg.Register(strings.TrimSpace(in.Username), in.Password)
 	switch {
 	case errors.Is(err, users.ErrInvalidName), errors.Is(err, users.ErrWeakPassword):
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeErr(w, r, http.StatusBadRequest, err.Error())
 		return
 	case errors.Is(err, users.ErrExists):
-		writeErr(w, http.StatusConflict, err.Error())
+		writeErr(w, r, http.StatusConflict, err.Error())
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	s.startSession(w, u.Username)
@@ -145,16 +146,16 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 		New string `json:"new"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	name := userOf(r)
 	switch err := s.reg.ChangePassword(name, in.Old, in.New); {
 	case errors.Is(err, users.ErrWeakPassword), errors.Is(err, users.ErrWrongPassword):
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeErr(w, r, http.StatusBadRequest, err.Error())
 		return
 	case err != nil:
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	keep := ""
@@ -169,7 +170,7 @@ func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resetToken(w http.ResponseWriter, r *http.Request) {
 	tok, err := s.reg.ResetToken(userOf(r))
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"token": tok})

@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"mdbox/internal/i18n"
 	"mdbox/internal/render"
 	"mdbox/internal/store"
 )
@@ -22,8 +24,22 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeErr(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
+// localize 把已知文案键翻成当前请求语言，其余原样返回。
+func localize(r *http.Request, msg string) string {
+	if i18n.Known(msg) {
+		return i18n.T(langOf(r), i18n.Key(msg))
+	}
+	return msg
+}
+
+func writeErr(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	writeJSON(w, status, map[string]string{"error": localize(r, msg)})
+}
+
+// writeBadReq 返回本地化的「请求格式错误」，原始错误只写日志、不回给客户端。
+func writeBadReq(w http.ResponseWriter, r *http.Request, key i18n.Key, err error) {
+	log.Printf("api %s %s: %v", r.Method, r.URL.Path, err)
+	writeErr(w, r, http.StatusBadRequest, string(key))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +60,7 @@ func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
 		Limit:    limit,
 	})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"docs": docs, "total": len(docs)})
@@ -53,7 +69,7 @@ func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getDoc(w http.ResponseWriter, r *http.Request) {
 	d, err := stOf(r).Get(r.PathValue("id"))
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	html, _ := render.Markdown(d.Content)
@@ -75,7 +91,7 @@ type createReq struct {
 func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
 	var in createReq
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	d, err := stOf(r).Create(store.CreateInput{
@@ -86,7 +102,7 @@ func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
 		Source:   in.Source,
 	})
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"doc": d})
@@ -100,7 +116,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 		Category *string  `json:"category"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	d, err := stOf(r).Update(r.PathValue("id"), store.UpdateInput{
@@ -110,7 +126,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 		Category: in.Category,
 	})
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"doc": d})
@@ -119,7 +135,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) archiveDoc(w http.ResponseWriter, r *http.Request) {
 	d, err := stOf(r).Archive(r.PathValue("id"))
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"doc": d})
@@ -127,7 +143,7 @@ func (s *Server) archiveDoc(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
 	if err := stOf(r).Delete(r.PathValue("id")); err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -136,7 +152,7 @@ func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
 func (s *Server) downloadDoc(w http.ResponseWriter, r *http.Request) {
 	d, err := stOf(r).Get(r.PathValue("id"))
 	if err != nil {
-		writeErr(w, http.StatusNotFound, err.Error())
+		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
 	writeMarkdown(w, d)
@@ -184,7 +200,7 @@ func (s *Server) categories(w http.ResponseWriter, r *http.Request) {
 // upload 接收 multipart 上传的 .md 文件，可一次多篇。
 func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		writeErr(w, http.StatusBadRequest, "parse form: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadForm, err)
 		return
 	}
 	created := []*store.Doc{}
@@ -192,7 +208,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		for _, h := range fh {
 			doc, err := saveUpload(stOf(r), h)
 			if err != nil {
-				writeErr(w, http.StatusInternalServerError, err.Error())
+				writeErr(w, r, http.StatusInternalServerError, err.Error())
 				return
 			}
 			created = append(created, doc)
@@ -220,12 +236,12 @@ func (s *Server) preview(w http.ResponseWriter, r *http.Request) {
 		Content string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
-		writeErr(w, http.StatusBadRequest, "bad json: "+err.Error())
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
 	html, err := render.Markdown(in.Content)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"html": html})

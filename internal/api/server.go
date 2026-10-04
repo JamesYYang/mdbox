@@ -7,6 +7,7 @@ import (
 
 	"mdbox/internal/auth"
 	"mdbox/internal/config"
+	"mdbox/internal/i18n"
 	"mdbox/internal/store"
 	"mdbox/internal/users"
 )
@@ -24,7 +25,16 @@ type ctxKey int
 const (
 	ctxUser ctxKey = iota
 	ctxStore
+	ctxLang
 )
+
+// langOf 取当前请求语言；无值时（如直连测试）回退默认。
+func langOf(r *http.Request) i18n.Lang {
+	if l, ok := r.Context().Value(ctxLang).(i18n.Lang); ok {
+		return l
+	}
+	return i18n.Default
+}
 
 // stOf 取出当前请求所属用户的文档仓库（由 withAuth 注入）。
 func stOf(r *http.Request) *store.Store { return r.Context().Value(ctxStore).(*store.Store) }
@@ -98,21 +108,23 @@ func (s *Server) identify(r *http.Request) (string, bool) {
 
 func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), ctxLang, i18n.FromAcceptLanguage(r.Header.Get("Accept-Language")))
+		r = r.WithContext(ctx)
 		if publicPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
 		name, ok := s.identify(r)
 		if !ok {
-			writeErr(w, http.StatusUnauthorized, "unauthorized")
+			writeErr(w, r, http.StatusUnauthorized, string(i18n.KeyUnauthorized))
 			return
 		}
 		st, err := s.reg.Store(name)
 		if err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
+			writeErr(w, r, http.StatusInternalServerError, err.Error())
 			return
 		}
-		ctx := context.WithValue(r.Context(), ctxUser, name)
+		ctx = context.WithValue(r.Context(), ctxUser, name)
 		ctx = context.WithValue(ctx, ctxStore, st)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
