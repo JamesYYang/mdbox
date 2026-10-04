@@ -1,82 +1,85 @@
 # mdbox
 
-一个自托管的 **Markdown 文档管理工具**：agent 产出的文档自动入库，人在任意浏览器里阅读、编辑、归类、打标签、上传、下载、分享；同时通过 **MCP** 让任意 agent 读写这个库。
+English · [中文](docs/README-ZH.md)
 
-设计原则：**文档永远是纯 `.md` 文件 + YAML frontmatter，工具只是它的一个视图。** 存储层不用数据库，直接落在磁盘目录，git 负责版本与异地备份。
+A self-hosted **Markdown document manager**: documents produced by agents flow in automatically, while you read, edit, organize, tag, upload, download, and share them from any browser — and any agent can read and write the same library through **MCP**.
 
-## 功能
+Design principle: **a document is always a plain `.md` file with YAML frontmatter; the tool is just a view over it.** There is no database in the storage layer — everything lands in a directory on disk, and git handles versioning and off-site backup.
+
+## Features
 
 - **Web UI**
-  - **登录 / 注册**：多用户，用户名自助注册（可在 `config.yaml` 用 `allow_register: false` 关闭）；每人的文档彼此隔离
-  - **顶栏**：产品名 + Logo、MCP 接入（弹窗给出**你自己的** token 与接入配置，可重置）、浅色/深色主题切换、用户信息与退出
-  - **左侧栏**：分类 / 标签 / 归档，一键筛选
-  - **卡片列表**：全文搜索、悬停显示删除按钮（二次确认后彻底删除）
-  - **阅读与编辑**：默认**只读预览**，点「编辑」进入左源码右实时预览的双栏模式，可改标题/分类/标签/归档
-  - **上传 / 下载**：拖拽或选择多个 `.md`；预览模式下可下载 Markdown 或**导出 PDF**
-- **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，任何人凭链接免登录只读查看，可随时关闭撤销
-- **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、multipart 上传、Markdown 渲染、分享
-- **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
-- **鉴权**：Web 用登录会话（Cookie），agent/脚本用**每个用户各自的 token**，两者都只能访问该用户自己的文档
-- **git 自动备份**：数据目录本身是 git 仓库，定时提交并推送远端
-- **零前端依赖**：预览渲染在服务端（goldmark），不依赖任何 CDN；唯一打包的第三方 JS 是本地内置的 html2pdf（用于 PDF 导出）
+  - **Login / registration**: multi-user, self-service sign-up (disable with `allow_register: false` in `config.yaml`); each user's documents are isolated
+  - **Bilingual UI**: English / Chinese, switchable from the top bar, the login page, and the share page; defaults to your browser language
+  - **Top bar**: product name + logo, MCP access (a dialog shows **your own** token and connection config, and can reset it), light/dark theme switch, account info and sign-out
+  - **Sidebar**: categories / tags / archive, with one-click filtering
+  - **Card list**: full-text search; hovering a card reveals a delete button (permanent delete, after a confirmation)
+  - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags and archive the document
+  - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
+- **Sharing**: enable sharing per document to get a **stable, deterministically signed link**; anyone with the link can read it without signing in, and you can turn it off at any time
+- **REST API**: login/registration, document CRUD, search, tag/category aggregation, multipart upload, Markdown rendering, sharing
+- **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, over HTTP (Streamable) or stdio
+- **Auth**: the web app uses a login session (cookie); agents/scripts use a **per-user token**; either way, only that user's own documents are reachable
+- **Automatic git backup**: the data directory is itself a git repository, committed and pushed on a schedule
+- **Zero frontend dependencies**: preview is rendered server-side (goldmark) with no CDN; the only bundled third-party JS is a local copy of html2pdf (for PDF export)
 
-## 快速开始
+## Quick start
 
-构建要求：Go 1.23+
+Build requirement: Go 1.23+
 
 ```bash
 go build -o mdbox .
 ./mdbox -addr :8080 -data ./data
-# 浏览器打开 http://<server>:8080，注册第一个用户即可使用（没有预置账号）
+# Open http://<server>:8080 and register the first user — there is no seeded account
 ```
 
-首次启动会在当前目录生成 **`config.yaml`** 与 **`users.yaml`**（均已在 `.gitignore` 中）：
+On first run it creates **`config.yaml`** and **`users.yaml`** in the current directory (both are gitignored):
 
 ```yaml
 # config.yaml
-secret: "<随机生成：分享链接签名，改动会让所有已分享链接失效>"
-allow_register: true              # false 则关闭自助注册
+secret: "<randomly generated: signing key for share links; changing it invalidates every shared link>"
+allow_register: true              # false disables self-service registration
 ```
 
-- 没有预置/默认账号。若把 `allow_register` 设为 `false`，需先在开放注册时创建好用户，否则无人能登录；
-- `users.yaml` 是用户注册表（不用数据库）：用户名、**bcrypt 密码哈希**、该用户的 MCP token、创建时间。它放在 `data/` 之外，不会被 git 备份带走；
-- 用 `-config` / `-users` 指定两个文件的路径；模板见 `config.example.yaml`。
+- There is no seeded/default account. If you set `allow_register` to `false`, create your users while registration is still open — otherwise nobody will be able to sign in.
+- `users.yaml` is the user registry (no database): username, **bcrypt password hash**, that user's MCP token, and creation time. It lives outside `data/`, so git backups never carry it.
+- Use `-config` / `-users` to set the two paths; `config.example.yaml` is a template.
 
-## 鉴权
+## Authentication
 
-两套机制，最终都解析成「某个用户」，之后只能读写 `data/users/<username>/` 下的文档：
+Two mechanisms, both resolving a request to "a user", after which only that user's documents under `data/users/<username>/` are reachable:
 
-- **Web 端**：用户名 / 密码登录（`POST /api/login`）或注册（`POST /api/register`，成功后直接登录），下发内存会话 Cookie `mdbox_session`。会话存在内存，**进程重启后需重新登录**。
-- **agent / 脚本**：每个用户注册时自动生成一个 token，请求头 `Authorization: Bearer <token>`；`/api/*` 与 `/mcp` 都认它。token 可在 Web 的「MCP 接入」弹窗查看、重置（重置后旧 token 立即失效）。
+- **Web**: username / password login (`POST /api/login`) or registration (`POST /api/register`, which signs you in immediately), issuing an in-memory session cookie `mdbox_session`. Sessions live in memory, so **a process restart requires signing in again**.
+- **Agent / scripts**: each user gets a token at registration; send it as `Authorization: Bearer <token>`. Both `/api/*` and `/mcp` accept it. You can view and reset the token in the web "MCP access" dialog (resetting invalidates the old token immediately).
 
-用户名规则：小写字母、数字、`_`、`-`，3-32 位；密码 8-72 位。同一 IP 每小时最多注册 5 次。
+Username rules: lowercase letters, digits, `_`, `-`, 3-32 characters; passwords 8-72 characters. At most 5 registrations per IP per hour.
 
-## 分享
+## Sharing
 
-在文档预览模式点「分享」即可开启。链接形如：
+Click Share in a document's preview. A link looks like:
 
 ```
 https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>")[:24]
 ```
 
-`sig` 由 `secret` 用固定算法生成，所以同一篇文档每次都是**同一个地址**；更改 `secret` 会让所有已分享链接立即失效，关闭分享则该链接返回 404。分享页只读，不能编辑。
+`sig` is derived deterministically from `secret`, so the same document always has **the same URL**; changing `secret` invalidates every shared link at once, and turning sharing off makes the link return 404. The share page is read-only.
 
-## MCP 接入
+## MCP setup
 
-HTTP 模式（远程 agent，如 CodeBuddy / Claude 等）。token 是你自己账号的，在 Web 顶栏「MCP 接入」里查看；该 agent 只能访问你自己的文档：
+HTTP mode (remote agents, e.g. CodeBuddy / Claude). The token belongs to your own account — view it under "MCP access" in the top bar; the agent can only reach your own documents:
 
 ```json
 {
   "mcpServers": {
     "mdbox": {
       "url": "http://your-server:8080/mcp",
-      "headers": { "Authorization": "Bearer <你的 token>" }
+      "headers": { "Authorization": "Bearer <your-token>" }
     }
   }
 }
 ```
 
-stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个用户服务，该用户须已注册）：
+stdio mode (local agents connect directly; no token, and `-user` picks which registered user to serve):
 
 ```json
 {
@@ -89,75 +92,75 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 }
 ```
 
-## REST API 一览
+## REST API reference
 
-| 方法 | 路径 | 说明 |
+| Method | Path | Description |
 |---|---|---|
-| POST | `/api/login` | `{username,password}` 登录，下发会话 Cookie |
-| POST | `/api/register` | `{username,password}` 注册并登录，生成该用户的 token（可被 `allow_register` 关闭） |
-| POST | `/api/logout` | 退出登录 |
-| GET | `/api/me` | 当前用户与其 token |
-| POST | `/api/me/token` | 重置当前用户的 token |
-| POST | `/api/me/password` | 修改当前用户密码，body `{"old","new"}`；成功后其他登录会话失效 |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
-| POST | `/api/docs` | 创建 `{title, content, tags, category, source}` |
-| GET | `/api/docs/{id}` | 读取（含正文与渲染 HTML；已分享时附带 shareUrl） |
-| PUT | `/api/docs/{id}` | 更新 `{title?, content?, tags?, category?}` |
-| POST | `/api/docs/{id}/archive` | 归档（移入 archive，软删除） |
-| DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
-| POST | `/api/docs/{id}/share` | `{shared:bool}` 开启/关闭分享，返回固定链接 |
-| GET | `/api/docs/{id}/download` | 下载 .md |
-| GET | `/api/share/{user}/{id}/{sig}` | **匿名**只读读取（分享） |
-| GET | `/api/share/{user}/{id}/{sig}/download` | **匿名**下载 .md（分享） |
-| GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
-| POST | `/api/upload` | multipart 上传多个 .md |
+| POST | `/api/login` | `{username,password}` login; issues a session cookie |
+| POST | `/api/register` | `{username,password}` register and log in; generates the user's token (can be disabled via `allow_register`) |
+| POST | `/api/logout` | Sign out |
+| GET | `/api/me` | Current user and their token |
+| POST | `/api/me/token` | Reset the current user's token |
+| POST | `/api/me/password` | Change the current user's password, body `{"old","new"}`; invalidates other sessions on success |
+| GET | `/api/health` | Health check |
+| GET | `/api/docs?tag=&category=&status=&q=&limit=` | List / search |
+| POST | `/api/docs` | Create `{title, content, tags, category, source}` |
+| GET | `/api/docs/{id}` | Read (with body and rendered HTML; includes shareUrl when shared) |
+| PUT | `/api/docs/{id}` | Update `{title?, content?, tags?, category?}` |
+| POST | `/api/docs/{id}/archive` | Archive (moves into archive; soft delete) |
+| DELETE | `/api/docs/{id}` | Permanently delete (cannot be undone) |
+| POST | `/api/docs/{id}/share` | `{shared:bool}` enable/disable sharing; returns the stable link |
+| GET | `/api/docs/{id}/download` | Download the .md |
+| GET | `/api/share/{user}/{id}/{sig}` | **Anonymous** read-only access (share) |
+| GET | `/api/share/{user}/{id}/{sig}/download` | **Anonymous** .md download (share) |
+| GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
+| POST | `/api/upload` | Multipart upload of multiple .md files |
 | POST | `/api/preview` | `{content}` → `{html}` |
-| POST | `/mcp` | MCP Streamable HTTP 端点（仅用户 token，只暴露该用户自己的文档） |
+| POST | `/mcp` | MCP Streamable HTTP endpoint (user token only; exposes only that user's own documents) |
 
-## 数据与备份
+## Data & backup
 
 ```
 data/users/<username>/
-├── docs/*.md      活跃文档
-└── archive/*.md   已归档文档
+├── docs/*.md      active documents
+└── archive/*.md   archived documents
 ```
 
-每个用户一个目录，整个 `data/` 仍是一个 git 仓库，备份方式不变。
+Each user gets a directory; the whole `data/` is still a git repository, so the backup story is unchanged.
 
-初始化远端并加入 crontab：
+Initialize the remote and add a crontab entry:
 
 ```bash
 cd data && git init && git remote add origin git@github.com:<you>/<repo>.git
 crontab: */10 * * * * /path/to/mdbox/scripts/git-backup.sh /path/to/mdbox/data
 ```
 
-> 部署提示：mdbox 是**有状态、单实例**服务（内存索引 + 内存会话 + 磁盘文件），需要挂一块持久磁盘当 `data/`。文档**不适合**直接放在对象存储（S3/OSS）上——它是普通文件系统 I/O。
+> Deployment note: mdbox is a **stateful, single-instance** service (in-memory index + in-memory sessions + files on disk) and needs a persistent disk mounted as `data/`. Its documents are **not** suited to object storage (S3/OSS) directly — this is ordinary filesystem I/O.
 
-在 Azure 上的完整部署步骤（GitHub Actions 构建 → ACR → Container Apps + Azure Files 持久卷）见 [`docs/DEPLOY.md`](docs/DEPLOY.md)。
+Full Azure deployment steps (GitHub Actions build → ACR → Container Apps + Azure Files persistent volume) are in [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
-## 目录结构
+## Directory layout
 
 ```
-main.go                入口（HTTP 服务 / stdio 模式）、路由、embed web/
-internal/store/        存储层：frontmatter 解析、内存索引、CRUD
-internal/render/       Markdown → HTML（goldmark）
-internal/api/          REST API 与鉴权
-internal/mcp/          MCP 工具定义
-internal/config/       config.yaml（初始账号 / 分享 secret / 是否开放注册）
-internal/users/        用户注册表 users.yaml、密码哈希、token、按用户的 Store
-internal/auth/         内存登录会话
-web/                   前端（embed 进二进制，部署单文件）
-web/vendor/            本地内置的 html2pdf（PDF 导出用）
-scripts/git-backup.sh  数据目录 git 自动备份
+main.go                entry point (HTTP server / stdio mode), routing, embed web/
+internal/store/        storage: frontmatter parsing, in-memory index, CRUD
+internal/render/       Markdown → HTML (goldmark)
+internal/api/          REST API and auth
+internal/mcp/          MCP tool definitions
+internal/config/       config.yaml (initial account / share secret / registration toggle)
+internal/users/        users.yaml registry, password hashing, tokens, per-user Store
+internal/auth/         in-memory login sessions
+web/                   frontend (embedded in the binary, single-file deploy)
+web/vendor/            local copy of html2pdf (for PDF export)
+scripts/git-backup.sh  scheduled git backup of the data directory
 ```
 
-## 已知取舍（MVP）
+## Known trade-offs (MVP)
 
-- 元数据索引在内存中启动时全量重建，**外部直接增删 data 目录文件后，服务会在下次请求时自动重建**；万篇以内无压力
-- 登录会话存在内存，进程重启后所有人需重新登录；请以**单实例**运行
-- 多用户只做到「文档隔离」：没有角色/权限、没有用户间共享、没有找回/修改密码页面（忘记密码需管理员手动处理）
-- 预览渲染允许内联 HTML（`WithUnsafe`），仅建议个人或可信团队使用
-- 归档是软删除；**删除则是真删**，不可恢复
-- PDF 由浏览器端 html2pdf 把整页截成图片再切片分页，超长代码块或超大表格仍可能有分页瑕疵
-- 「过期候选清单 + 自动清理」计划在下一阶段
+- The metadata index is fully rebuilt from disk at startup; **if you add or remove files in the data directory externally, the service rebuilds on the next request.** Fine up to roughly 10k documents.
+- Login sessions live in memory; a restart signs everyone out — run it as a **single instance**.
+- Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery page (a forgotten password must be handled by hand).
+- Preview rendering permits inline HTML (`WithUnsafe`) — recommended only for personal or trusted-team use.
+- Archiving is a soft delete; **deleting is permanent** and cannot be undone.
+- PDF export uses client-side html2pdf to snapshot the page into images and slice them into pages; very long code blocks or huge tables can still paginate imperfectly.
+- A "stale-document candidate list + automatic cleanup" is planned for the next phase.

@@ -16,7 +16,7 @@ GitHub push(main) ──► GitHub Actions ──► Azure ACR（镜像）
 - **运行**：Container Apps 单副本运行，镜像里 `ENTRYPOINT` 固定监听 **8080**。
 - **持久化**：普通文件系统 I/O，必须挂 Azure Files；**不要**放在 Blob/对象存储上。
 
-> 若只是本机跑，看 README 的「快速开始」即可，不需要本文。
+> 若只是本机跑，看 [`README-ZH.md`](README-ZH.md) 的「快速开始」即可，不需要本文。
 
 ---
 
