@@ -974,6 +974,7 @@
     bindDialog();
     $('share-theme-btn').addEventListener('click', toggleTheme);
     $('share-brand').addEventListener('click', function () { location.href = '/'; });
+    $('share-clone').addEventListener('click', cloneShared);
     $('share-download').addEventListener('click', function (e) {
       e.stopPropagation();
       $('share-download-menu').hidden = !$('share-download-menu').hidden;
@@ -1002,6 +1003,25 @@
   function shareDownloadPdf() {
     exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function (e) {
       uiAlert(e.message || I18N.t('pdf.export_failed'), { title: I18N.t('pdf.export_failed_title') });
+    });
+  }
+
+  // 复制当前分享的文档到自己登录账号的库里，成功后打开副本。
+  function cloneShared() {
+    if (!shareCtx) { return; }
+    fetch('/api/clone/' + encodeURIComponent(shareCtx.user) + '/' +
+          encodeURIComponent(shareCtx.id) + '/' + encodeURIComponent(shareCtx.sig), {
+      method: 'POST',
+      headers: { 'Accept-Language': I18N.lang() }
+    }).then(function (r) {
+      if (r.status === 401) { location.href = '/'; return null; } // 未登录 → 跳登录页
+      if (!r.ok) { throw new Error(I18N.t('share.clone_failed')); }
+      return r.json();
+    }).then(function (data) {
+      if (!data || !data.doc) { return; }
+      location.href = '/#/doc/' + encodeURIComponent(data.doc.id); // 进自己的库并打开副本
+    }).catch(function (e) {
+      uiAlert(e.message || I18N.t('share.clone_failed'), { title: I18N.t('action.dialog_title') });
     });
   }
 

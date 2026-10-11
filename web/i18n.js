@@ -29,6 +29,8 @@
       'share.gone': '分享不存在或已失效。',
       'share.load_failed': '加载失败。',
       'share.download_failed': '下载失败',
+      'share.clone': '复制到我的库',
+      'share.clone_failed': '复制失败',
 
       'action.theme': '切换主题',
       'action.mcp': 'MCP 接入',
@@ -157,6 +159,8 @@
       'share.gone': 'This share link is invalid or has expired.',
       'share.load_failed': 'Failed to load.',
       'share.download_failed': 'Download failed',
+      'share.clone': 'Copy to my library',
+      'share.clone_failed': 'Copy failed',
 
       'action.theme': 'Toggle theme',
       'action.mcp': 'MCP access',
