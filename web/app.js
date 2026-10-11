@@ -134,6 +134,19 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
+  // 列表卡片用的紧凑时间：同年只显示 月-日 时:分，跨年显示 年-月-日。
+  function fmtCardTime(s) {
+    if (!s) { return ''; }
+    var d = new Date(s);
+    if (isNaN(d.getTime())) { return s; }
+    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
+    var md = p(d.getMonth() + 1) + '-' + p(d.getDate());
+    if (d.getFullYear() === new Date().getFullYear()) {
+      return md + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+    return d.getFullYear() + '-' + md;
+  }
+
   function splitTags(v) {
     return (v || '').split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
   }
@@ -433,12 +446,22 @@
 
       var m = document.createElement('div');
       m.className = 'm';
-      var row = [fmtTime(d.updated)];
-      if (d.category) { row.push(d.category); }
-      if (d.source) { row.push(d.source); }
-      if (d.shared) { row.push(I18N.t('list.shared')); }
-      row.push(I18N.t('list.size', { n: Math.max(1, Math.round((d.size || 0) / 100)) / 10 }));
-      m.textContent = row.join(' · ');
+      var left = document.createElement('span');
+      left.className = 'm-left';
+      var bits = [fmtCardTime(d.updated)];
+      if (d.category) { bits.push(d.category); }
+      left.textContent = bits.join(' · ');
+      m.appendChild(left);
+      if (d.shared) {
+        var sh = document.createElement('span');
+        sh.className = 'm-shared';
+        sh.title = I18N.t('list.shared');
+        sh.setAttribute('aria-label', I18N.t('list.shared'));
+        sh.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/>' +
+          '<path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+        m.appendChild(sh);
+      }
       card.appendChild(m);
 
       list.appendChild(card);

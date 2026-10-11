@@ -75,7 +75,6 @@
       'list.filter_search': '搜索：{v}',
       'list.count': '{n} 篇',
       'list.shared': '已分享',
-      'list.size': '{n}k 字',
       'list.delete_title': '删除',
       'list.delete_aria': '删除文档',
 
@@ -205,7 +204,6 @@
       'list.filter_search': 'Search: {v}',
       'list.count': '{n} documents',
       'list.shared': 'Shared',
-      'list.size': '{n}k chars',
       'list.delete_title': 'Delete',
       'list.delete_aria': 'Delete document',
 

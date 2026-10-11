@@ -184,7 +184,9 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 @media (hover: none) {
   .card-del { opacity: 1; pointer-events: auto; }
 }
-.card .m { font-size: 12px; color: var(--muted); }
+.card .m { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.card .m-left { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .m-shared { display: inline-flex; align-items: center; flex: none; }
 .card .tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .card .tags span {
   font-size: 12px; padding: 1px 8px; border-radius: 999px;
