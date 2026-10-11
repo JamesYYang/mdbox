@@ -144,3 +144,22 @@ func TestCloneUnsharedDocNotFound(t *testing.T) {
 		t.Fatalf("未分享文档状态码 = %d, want 404", rec.Code)
 	}
 }
+
+func TestCloneBadSignatureNotFound(t *testing.T) {
+	reg, h, _ := newTestServer(t)
+	reg.Register("alice", "password123")
+	bob, _ := reg.Register("bob", "password123")
+	aliceStore, _ := reg.Store("alice")
+	src, _ := aliceStore.Create(store.CreateInput{Title: "T", Content: "b", Source: "web"})
+	aliceStore.SetShared(src.ID, true)
+
+	// bob 已登录，但签名伪造 → 应 404（端点的安全边界）
+	req := httptest.NewRequest(http.MethodPost, "/api/clone/alice/"+src.ID+"/forged-signature", nil)
+	req.Header.Set("Authorization", "Bearer "+bob.Token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("伪造签名状态码 = %d, want 404", rec.Code)
+	}
+}
