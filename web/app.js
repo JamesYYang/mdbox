@@ -81,7 +81,7 @@
         renderListHead();
         renderList();
       } else if (state.mode === 'preview' && state.current) {
-        $('d-meta').textContent = metaText(state.current);
+        renderDocMeta(state.current);
       }
     }
   }
@@ -126,16 +126,8 @@
     if (text) { setTimeout(function () { if (el.textContent === text) { el.textContent = ''; } }, 2600); }
   }
 
-  function fmtTime(s) {
-    if (!s) { return ''; }
-    var d = new Date(s);
-    if (isNaN(d.getTime())) { return s; }
-    var p = function (n) { return n < 10 ? '0' + n : '' + n; };
-    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
-  }
-
-  // 列表卡片用的紧凑时间：同年只显示 月-日 时:分，跨年显示 年-月-日。
-  function fmtCardTime(s) {
+  // 紧凑时间（列表卡片与详情页 meta）：同年 MM-DD HH:MM，跨年 YYYY-MM-DD。
+  function fmtShortTime(s) {
     if (!s) { return ''; }
     var d = new Date(s);
     if (isNaN(d.getTime())) { return s; }
@@ -206,7 +198,7 @@
     ['d-source', 'e-title', 'e-category', 'e-tags', 'search', 'share-link'].forEach(function (id) {
       if ($(id)) { $(id).value = ''; }
     });
-    ['p-title', 'd-meta', 'p-msg', 'e-msg'].forEach(function (id) {
+    ['p-title', 'doc-meta', 'p-msg', 'e-msg'].forEach(function (id) {
       if ($(id)) { $(id).textContent = ''; }
     });
     ['modal-mcp', 'modal-share', 'modal-dialog'].forEach(function (id) {
@@ -306,6 +298,7 @@
     var editing = mode === 'edit';
     $('preview-bar').hidden = editing;
     $('edit-bar').hidden = !editing;
+    $('doc-meta').hidden = editing;
     $('pane-preview').hidden = editing;
     $('pane-edit').hidden = !editing;
   }
@@ -448,7 +441,7 @@
       m.className = 'm';
       var left = document.createElement('span');
       left.className = 'm-left';
-      var bits = [fmtCardTime(d.updated)];
+      var bits = [fmtShortTime(d.updated)];
       if (d.category) { bits.push(d.category); }
       left.textContent = bits.join(' · ');
       m.appendChild(left);
@@ -470,10 +463,49 @@
 
   /* ---------- 文档：预览 / 编辑 ---------- */
 
-  function metaText(d) {
-    var bits = [d.id, fmtTime(d.created), fmtTime(d.updated)];
-    if (d.shared) { bits.push(I18N.t('doc.shared_on')); }
-    return bits.filter(Boolean).join(' · ');
+  // 详情页顶部 meta：分类（📁 chip）+ 标签 chips + 来源 + 更新时间 + 分享图标。
+  function renderDocMeta(d) {
+    var box = $('doc-meta');
+    box.innerHTML = '';
+    if (d.category) {
+      var cat = document.createElement('span');
+      cat.className = 'dm-cat';
+      cat.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+      var ct = document.createElement('span');
+      ct.textContent = d.category;
+      cat.appendChild(ct);
+      box.appendChild(cat);
+    }
+    (d.tags || []).forEach(function (x) {
+      var tag = document.createElement('span');
+      tag.className = 'dm-tag';
+      tag.textContent = x;
+      box.appendChild(tag);
+    });
+    var spacer = document.createElement('span');
+    spacer.className = 'spacer';
+    box.appendChild(spacer);
+    if (d.source) {
+      var src = document.createElement('span');
+      src.className = 'dm-txt';
+      src.textContent = I18N.t('doc.source') + ' ' + d.source;
+      box.appendChild(src);
+    }
+    var up = document.createElement('span');
+    up.className = 'dm-txt';
+    up.textContent = I18N.t('doc.updated') + ' ' + fmtShortTime(d.updated);
+    box.appendChild(up);
+    if (d.shared) {
+      var sh = document.createElement('span');
+      sh.className = 'dm-shared';
+      sh.title = I18N.t('list.shared');
+      sh.setAttribute('aria-label', I18N.t('list.shared'));
+      sh.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/>' +
+        '<path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+      box.appendChild(sh);
+    }
   }
 
   function openDoc(id) {
@@ -483,7 +515,7 @@
       state.dirty = false;
       $('d-preview').innerHTML = data.html || '';
       $('p-title').textContent = data.doc.title || data.doc.id;
-      $('d-meta').textContent = metaText(data.doc);
+      renderDocMeta(data.doc);
       $('p-share').classList.toggle('primary', !!data.doc.shared);
       if (hashDocId() !== id) {
         history.pushState(null, '', '#/doc/' + encodeURIComponent(id));
@@ -665,7 +697,7 @@
       state.current.shared = resp.shared;
       state.current.shareUrl = resp.url || '';
       $('p-share').classList.toggle('primary', resp.shared);
-      $('d-meta').textContent = metaText(state.current);
+      renderDocMeta(state.current);
       updateShareLink(resp.shared);
       loadList();
     }).catch(function (e) {

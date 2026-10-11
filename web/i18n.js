@@ -83,8 +83,9 @@
       'edit.tags_placeholder': '标签，逗号分隔',
       'edit.source_placeholder': '在这里写 Markdown…',
 
-      'doc.shared_on': '已开启分享',
       'doc.untitled': '未命名文档',
+      'doc.source': '来源',
+      'doc.updated': '更新',
       'doc.open_failed': '打开文档失败',
       'doc.saving': '保存中…',
       'doc.delete_confirm': '确定要永久删除「{title}」吗？\n\n此操作不可恢复，文件会被真正删除（如果只是想暂时收起来，请改用「归档」）。',
@@ -212,8 +213,9 @@
       'edit.tags_placeholder': 'Tags, comma-separated',
       'edit.source_placeholder': 'Write Markdown here…',
 
-      'doc.shared_on': 'Sharing is on',
       'doc.untitled': 'Untitled',
+      'doc.source': 'Source',
+      'doc.updated': 'Updated',
       'doc.open_failed': 'Failed to open document',
       'doc.saving': 'Saving…',
       'doc.delete_confirm': 'Permanently delete "{title}"?\n\nThis cannot be undone — the file will be truly deleted. To set it aside temporarily, use Archive instead.',
