@@ -209,7 +209,7 @@ mdbox 以**公开在线服务**形态提供：`www.mdbox.tech` 由作者托管�
 title: 文档标题
 tags: [标签1, 标签2]
 category: 分类
-source: agent | codebuddy | upload | web
+source: agent | codebuddy | upload | web | clone
 status: active | archived
 shared: false          # 是否开启匿名分享（v0.2 新增）
 created: 2026-10-01T00:00:00+08:00
@@ -234,6 +234,7 @@ updated: 2026-10-01T00:00:00+08:00
 | POST | `/api/docs/{id}/archive` | 归档（软删除） |
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
 | POST | `/api/docs/{id}/share` | 开启/关闭分享，返回固定链接 |
+| POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享的文档复制一份到当前用户自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/docs/{id}/download` | 下载 .md |
 | GET | `/api/share/{user}/{id}/{sig}` · `/api/share/{user}/{id}/{sig}/download` | **匿名**只读读取 / 下载（分享） |
 | GET | `/api/tags` · `/api/categories` | 聚合 |

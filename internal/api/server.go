@@ -66,6 +66,7 @@ func New(reg *users.Registry, cfg *config.Config, sessions *auth.Sessions) http.
 	mux.HandleFunc("GET /api/docs/{id}/download", s.downloadDoc)
 	mux.HandleFunc("GET /api/share/{user}/{id}/{token}", s.publicDoc)
 	mux.HandleFunc("GET /api/share/{user}/{id}/{token}/download", s.publicDownload)
+	mux.HandleFunc("POST /api/clone/{user}/{id}/{token}", s.cloneShared)
 	mux.HandleFunc("GET /api/tags", s.tags)
 	mux.HandleFunc("GET /api/categories", s.categories)
 	mux.HandleFunc("POST /api/upload", s.upload)

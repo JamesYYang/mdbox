@@ -86,3 +86,23 @@ func (s *Server) publicDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	writeMarkdown(w, d)
 }
+
+// cloneShared 把一篇「已分享」的文档复制到当前登录用户自己的库里（只带标题与正文）。
+// 源文档不受影响；副本是独立文档（source=clone）。
+func (s *Server) cloneShared(w http.ResponseWriter, r *http.Request) {
+	src, ok := s.sharedDoc(r)
+	if !ok {
+		writeErr(w, r, http.StatusNotFound, string(i18n.KeyShareGone))
+		return
+	}
+	d, err := stOf(r).Create(store.CreateInput{
+		Title:   src.Title,
+		Content: src.Content,
+		Source:  "clone",
+	})
+	if err != nil {
+		writeErr(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"doc": d})
+}
