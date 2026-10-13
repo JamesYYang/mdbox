@@ -160,7 +160,7 @@ scripts/git-backup.sh  scheduled git backup of the data directory
 - The metadata index is fully rebuilt from disk at startup; **if you add or remove files in the data directory externally, the service rebuilds on the next request.** Fine up to roughly 10k documents.
 - Login sessions live in memory; a restart signs everyone out — run it as a **single instance**.
 - Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery page (a forgotten password must be handled by hand).
-- Preview rendering permits inline HTML (`WithUnsafe`) — recommended only for personal or trusted-team use.
+- Preview rendering permits inline HTML (`WithUnsafe`), but the output goes through a whitelist sanitizer (bluemonday UGC): `<script>`, inline event handlers, `<iframe>` and `javascript:` links are stripped, while safe HTML such as `<details>`, `<br>` and tables is kept.
 - Archiving is a soft delete; **deleting is permanent** and cannot be undone.
 - PDF export uses client-side html2pdf to snapshot the page into images and slice them into pages; very long code blocks or huge tables can still paginate imperfectly.
 - A "stale-document candidate list + automatic cleanup" is planned for the next phase.

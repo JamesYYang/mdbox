@@ -14,12 +14,12 @@ go run . -addr :8080 -data ./data        # run Web + REST + MCP(HTTP)
 go run . -stdio -user alice -data ./data # run as MCP stdio server for a local agent, serving user alice
 go run . -config ./config.yaml -users ./users.yaml   # explicit config / user registry paths
 gofmt -l .                               # formatting check (no linter config in repo)
-go test ./...                            # only internal/users has tests
+go test ./...                            # tests live in internal/users, internal/api, internal/render, internal/i18n
 ```
 
 On first run a `config.yaml` is created (random `secret`, `allow_register: true`); there is no seeded/default account — users register themselves. Both are gitignored; `config.example.yaml` is the committed template.
 
-Automated tests only cover `internal/users`. Everything else is verified manually via curl against the REST API and the MCP tools (see PRD §7 for the smoke-test checklist).
+Automated tests cover `internal/users`, `internal/api`, `internal/i18n` and `internal/render` (the HTML sanitizer — treat it as the XSS regression gate). `store`, `mcp` and the end-to-end flows are verified manually via curl against the REST API and the MCP tools (see PRD §7 for the smoke-test checklist).
 
 ## Architecture
 
@@ -63,7 +63,7 @@ Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST
 
 ### Rendering & frontend
 
-Markdown is rendered **server-side** (`internal/render`) so the frontend has zero dependencies and needs no CDN — important for the target (China) network environment. `WithUnsafe()` permits inline HTML, so only expose this to trusted users. `web/app.js` is a single IIFE with a global `state` object. The content area defaults to **read-only preview**; an Edit button switches to the two-pane source+preview mode, whose live preview calls `POST /api/preview` (debounced 300ms). The only bundled third-party JS is `web/vendor/html2pdf.bundle.min.js` (used for client-side PDF export via `exportPdf()`), which is a canvas slicer rather than a real layout engine — pagination is controlled by `pagebreak: { mode: ['css','legacy'], avoid: [...] }` in `app.js` plus `break-inside`/`break-after` rules on `.pdf-export` children in `style.css`. Both are needed to stop text lines being cut across pages.
+Markdown is rendered **server-side** (`internal/render`) so the frontend has zero dependencies and needs no CDN — important for the target (China) network environment. `WithUnsafe()` permits inline HTML, but the output is always run through a bluemonday UGC whitelist (`policy` in `internal/render/render.go`): doc bodies come from users/agents and every frontend sink assigns the result to `innerHTML`, so renderer output is treated as untrusted. `main.go`'s `securityHeaders` adds a CSP (`script-src 'self'`) plus `nosniff` on top as defence in depth. `web/app.js` is a single IIFE with a global `state` object. The content area defaults to **read-only preview**; an Edit button switches to the two-pane source+preview mode, whose live preview calls `POST /api/preview` (debounced 300ms). The only bundled third-party JS is `web/vendor/html2pdf.bundle.min.js` (used for client-side PDF export via `exportPdf()`), which is a canvas slicer rather than a real layout engine — pagination is controlled by `pagebreak: { mode: ['css','legacy'], avoid: [...] }` in `app.js` plus `break-inside`/`break-after` rules on `.pdf-export` children in `style.css`. Both are needed to stop text lines being cut across pages.
 
 Horizontal clipping (a half character cut off at the right edge) is a **width** problem, not a wrapping one: html2pdf's `toContainer` puts the cloned element into a container whose width is `pageSize.inner.width` (A4 − margins ≈ **718px**), and html2canvas clips at that container edge. So `.pdf-export` must have `width:auto` (never a fixed px width wider than ~718) and must carry the `markdown` class (otherwise tables lose their borders and look unrendered) plus wrapping rules (`overflow-wrap:anywhere`, `pre{white-space:pre-wrap}`, `table{width:100%;table-layout:fixed}`, `img{max-width:100%}`) so intrinsic-width content can't overflow. Do **not** "fix" clipping by overriding `html2canvas.width`/`scrollX`/`scrollY` in `exportPdf()` — html2canvas locates the element by document coordinates and needs its default `scrollX`/`scrollY` (page scroll offset), so pinning them to 0 yields a blank capture. `main.go` embeds `web/` via `//go:embed`, so **frontend changes require a rebuild** to take effect.
 

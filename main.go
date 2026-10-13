@@ -109,7 +109,7 @@ func main() {
 	})
 	mux.Handle("/", staticFiles(webRoot))
 
-	srv := &http.Server{Addr: *addr, Handler: mux}
+	srv := &http.Server{Addr: *addr, Handler: securityHeaders(mux)}
 	go func() {
 		log.Printf("mdbox %s 启动于 %s，文档目录 %s，用户表 %s，开放注册: %v",
 			version, *addr, mustAbs(*dataDir), *usersPath, cfg.RegisterOpen())
@@ -125,6 +125,31 @@ func main() {
 	defer cancel()
 	_ = srv.Shutdown(ctx)
 	log.Print("已停止")
+}
+
+// securityHeaders 给所有响应加上安全头。
+// CSP 是纵深防御：即便文档正文里漏过一段活动内容，浏览器也不会执行内联脚本与事件属性。
+// 前端已确认没有内联 script / 内联事件属性，所以 script-src 'self' 不影响功能；
+// style 需留 'unsafe-inline'（html2pdf 导出时会往 iframe 里注入样式表）；
+// img 放行 http/https 是因为文档里允许外链图片。
+func securityHeaders(next http.Handler) http.Handler {
+	const csp = "default-src 'self'; " +
+		"script-src 'self'; " +
+		"style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data: https: http:; " +
+		"font-src 'self'; " +
+		"connect-src 'self'; " +
+		"frame-src 'self' about:; " +
+		"object-src 'none'; " +
+		"base-uri 'none'; " +
+		"form-action 'self'; " +
+		"frame-ancestors 'self'"
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", csp)
+		h.Set("X-Content-Type-Options", "nosniff")
+		next.ServeHTTP(w, r)
+	})
 }
 
 // mcpServers 按用户缓存 MCP server：每个 server 只绑定该用户自己的文档仓库。

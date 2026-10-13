@@ -14,12 +14,12 @@ go run . -addr :8080 -data ./data        # run Web + REST + MCP(HTTP)
 go run . -stdio -user alice -data ./data # run as MCP stdio server for a local agent, serving user alice
 go run . -config ./config.yaml -users ./users.yaml   # explicit config / user registry paths
 gofmt -l .                               # formatting check (no linter config in repo)
-go test ./...                            # only internal/users has tests
+go test ./...                            # tests live in internal/users, internal/api, internal/render, internal/i18n
 ```
 
 `web/` is embedded via `//go:embed`, so **frontend changes (app.js/style.css/index.html) require a rebuild/restart** to take effect.
 
-Automated tests only cover `internal/users`. Everything else is verified manually: curl against the REST API and the MCP tools (see `docs/PRD.md` §7 for the smoke-test checklist).
+Automated tests cover `internal/users`, `internal/api`, `internal/i18n` and `internal/render` (the HTML sanitizer — treat it as the XSS regression gate). `store`, `mcp` and the end-to-end flows are verified manually: curl against the REST API and the MCP tools (see `docs/PRD.md` §7 for the smoke-test checklist).
 
 On first run a `config.yaml` is created (random `secret`, `allow_register: true`); there is no seeded/default account — users register themselves. Both are gitignored; `config.example.yaml` is the committed template.
 
@@ -62,7 +62,7 @@ Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST
 
 ### Rendering & frontend
 
-Markdown is rendered **server-side** (`internal/render`) so the frontend has zero dependencies and needs no CDN (target is the China network environment). `WithUnsafe()` permits inline HTML, so only expose this to trusted users. `web/app.js` is a single IIFE with a global `state` object. The content area defaults to read-only preview; Edit switches to source+preview panes whose live preview calls `POST /api/preview` (debounced 300ms).
+Markdown is rendered **server-side** (`internal/render`) so the frontend has zero dependencies and needs no CDN (target is the China network environment). `WithUnsafe()` permits inline HTML, but the output is always run through a bluemonday UGC whitelist (`policy` in `internal/render/render.go`): doc bodies come from users/agents and every frontend sink assigns the result to `innerHTML`, so renderer output is treated as untrusted. `main.go`'s `securityHeaders` adds a CSP (`script-src 'self'`) plus `nosniff` on top as defence in depth. `web/app.js` is a single IIFE with a global `state` object. The content area defaults to read-only preview; Edit switches to source+preview panes whose live preview calls `POST /api/preview` (debounced 300ms).
 
 The document page is routed by hash (`#/doc/<id>`) so the browser Back/Forward/reload work: `openDoc` pushes the entry, `popstate` → `route()` shows the doc or the list, and the in-app Back button calls `history.back()` when the entry was pushed (`state.pushed`) or `replaceState`s otherwise. Leaving an edit with unsaved changes via Back re-pushes the doc URL and asks for confirmation first. Share pages use the pathname (`/s/...`), not the hash.
 
