@@ -101,7 +101,7 @@ func (s *Server) cloneShared(w http.ResponseWriter, r *http.Request) {
 		Source:  "clone",
 	})
 	if err != nil {
-		writeErr(w, r, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, storeErrStatus(err), err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"doc": d})

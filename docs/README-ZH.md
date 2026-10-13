@@ -114,7 +114,7 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | GET | `/api/share/{user}/{id}/{sig}` | **匿名**只读读取（分享） |
 | GET | `/api/share/{user}/{id}/{sig}/download` | **匿名**下载 .md（分享） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
-| POST | `/api/upload` | multipart 上传多个 .md |
+| POST | `/api/upload` | multipart 上传多个 .md（仅 UTF-8 文本，单篇 ≤2MB） |
 | POST | `/api/preview` | `{content}` → `{html}` |
 | POST | `/mcp` | MCP Streamable HTTP 端点（仅用户 token，只暴露该用户自己的文档） |
 
@@ -162,5 +162,6 @@ scripts/git-backup.sh  数据目录 git 自动备份
 - 多用户只做到「文档隔离」：没有角色/权限、没有用户间共享、没有找回/修改密码页面（忘记密码需管理员手动处理）
 - 预览渲染允许内联 HTML（`WithUnsafe`），但输出会经白名单清洗（bluemonday UGC）：`<script>`、内联事件属性、`<iframe>`、`javascript:` 链接等一律剔除，`<details>`、`<br>`、表格这类安全 HTML 保留
 - 归档是软删除；**删除则是真删**，不可恢复
+- 写入有上限：正文必须是 UTF-8 文本（把二进制改名成 `.md` 会被拒，回 415），单篇 2MB、每人 200MB（归档也算）、单次请求 32MB；阈值是 `internal/store/store.go` 里的常量，改完记得同步 i18n 文案
 - PDF 由浏览器端 html2pdf 把整页截成图片再切片分页，超长代码块或超大表格仍可能有分页瑕疵
 - 「过期候选清单 + 自动清理」计划在下一阶段

@@ -23,6 +23,7 @@ const (
 	KeyInternal          Key = "error.internal"
 	KeyBadJSON           Key = "error.bad_json"
 	KeyBadForm           Key = "error.bad_form"
+	KeyBodyTooLarge      Key = "error.body_too_large"
 	KeyBadCredentials    Key = "auth.bad_credentials"
 	KeyRegisterClosed    Key = "auth.register_closed"
 	KeyRegisterLimited   Key = "auth.register_limited"
@@ -33,6 +34,9 @@ const (
 	KeyUserNotFound      Key = "user.not_found"
 	KeyUserPasswordWrong Key = "user.password_wrong"
 	KeyDocNotFound       Key = "doc.not_found"
+	KeyDocTooLarge       Key = "doc.too_large"
+	KeyQuotaExceeded     Key = "doc.quota_exceeded"
+	KeyNotText           Key = "doc.not_text"
 )
 
 var catalog = map[Lang]map[Key]string{
@@ -41,6 +45,7 @@ var catalog = map[Lang]map[Key]string{
 		KeyInternal:          "Internal server error",
 		KeyBadJSON:           "Invalid request",
 		KeyBadForm:           "Invalid request",
+		KeyBodyTooLarge:      "Request body too large",
 		KeyBadCredentials:    "Incorrect username or password",
 		KeyRegisterClosed:    "Registration is closed",
 		KeyRegisterLimited:   "Too many attempts, please try again later",
@@ -51,12 +56,16 @@ var catalog = map[Lang]map[Key]string{
 		KeyUserNotFound:      "User not found",
 		KeyUserPasswordWrong: "Current password is incorrect",
 		KeyDocNotFound:       "Document not found",
+		KeyDocTooLarge:       "Document is too large (2 MB limit per document)",
+		KeyQuotaExceeded:     "Storage quota reached (200 MB per user) — archive or delete some documents first",
+		KeyNotText:           "Only UTF-8 text files are supported",
 	},
 	ZH: {
 		KeyUnauthorized:      "需要登录",
 		KeyInternal:          "服务器内部错误",
 		KeyBadJSON:           "请求格式错误",
 		KeyBadForm:           "请求格式错误",
+		KeyBodyTooLarge:      "请求体过大",
 		KeyBadCredentials:    "用户名或密码错误",
 		KeyRegisterClosed:    "注册已关闭",
 		KeyRegisterLimited:   "注册过于频繁，请稍后再试",
@@ -67,6 +76,9 @@ var catalog = map[Lang]map[Key]string{
 		KeyUserNotFound:      "用户不存在",
 		KeyUserPasswordWrong: "旧密码不正确",
 		KeyDocNotFound:       "文档不存在",
+		KeyDocTooLarge:       "文档过大，单篇上限 2MB",
+		KeyQuotaExceeded:     "存储配额已满（每人 200MB），请先归档或删除旧文档",
+		KeyNotText:           "只支持 UTF-8 文本文件",
 	},
 }
 

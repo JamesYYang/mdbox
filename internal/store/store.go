@@ -19,13 +19,29 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 
 	"mdbox/internal/i18n"
 )
 
-var ErrNotFound = errors.New(string(i18n.KeyDocNotFound))
+// 写入上限。文档是纯文本，这些值刻意留得很宽松，只为挡住「传二进制/撑爆磁盘」这类滥用。
+// 改动时记得同步 internal/i18n 里 KeyDocTooLarge / KeyQuotaExceeded 的文案。
+const (
+	MaxDocBytes  = 2 << 20   // 单篇正文上限 2 MiB
+	MaxUserBytes = 200 << 20 // 单用户总量上限 200 MiB（含归档）
+)
+
+var (
+	ErrNotFound = errors.New(string(i18n.KeyDocNotFound))
+	// ErrNotText 表示正文不是合法 UTF-8 文本（含 NUL 字节），典型来源是把二进制改名成 .md。
+	ErrNotText = errors.New(string(i18n.KeyNotText))
+	// ErrDocTooLarge 表示单篇正文超过 MaxDocBytes。
+	ErrDocTooLarge = errors.New(string(i18n.KeyDocTooLarge))
+	// ErrQuotaExceeded 表示该用户已用总量加本次写入会超过 MaxUserBytes。
+	ErrQuotaExceeded = errors.New(string(i18n.KeyQuotaExceeded))
+)
 
 // Doc 是一篇文档的元数据（Content 仅在单篇读取时填充）。
 type Doc struct {
@@ -61,14 +77,15 @@ type entry struct {
 
 // Store 是文档仓库。索引常驻内存，启动时从磁盘全量重建。
 type Store struct {
-	root string
-	mu   sync.RWMutex
-	docs map[string]*entry
+	root  string
+	quota int64 // 单用户总量上限（字节），默认 MaxUserBytes
+	mu    sync.RWMutex
+	docs  map[string]*entry
 }
 
 // New 打开（必要时创建）一个文档仓库。
 func New(root string) (*Store, error) {
-	s := &Store{root: root, docs: map[string]*entry{}}
+	s := &Store{root: root, quota: MaxUserBytes, docs: map[string]*entry{}}
 	for _, d := range []string{"docs", "archive"} {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			return nil, err
@@ -180,6 +197,27 @@ func serialize(d *Doc, content string) string {
 	return "---\n" + string(b) + "---\n\n" + body
 }
 
+// checkContent 校验一段正文能否入库：必须是合法 UTF-8 文本（Markdown 是文本格式，
+// 二进制改名成 .md 会在这里被挡下），且不超过单篇上限。
+func checkContent(content string) error {
+	if !utf8.ValidString(content) || strings.IndexByte(content, 0) >= 0 {
+		return ErrNotText
+	}
+	if len(content) > MaxDocBytes {
+		return ErrDocTooLarge
+	}
+	return nil
+}
+
+// usedBytes 返回该用户已占用的正文总量（含归档文档，它们同样占磁盘）。调用方须持锁。
+func (s *Store) usedBytes() int64 {
+	var total int64
+	for _, e := range s.docs {
+		total += int64(e.Size)
+	}
+	return total
+}
+
 // CreateInput 是新建/上传文档的入参。
 type CreateInput struct {
 	Title    string
@@ -199,6 +237,13 @@ func newID() string {
 func (s *Store) Create(in CreateInput) (*Doc, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	if err := checkContent(in.Content); err != nil {
+		return nil, err
+	}
+	if s.usedBytes()+int64(len(in.Content)) > s.quota {
+		return nil, ErrQuotaExceeded
+	}
 
 	id := newID()
 	now := time.Now()
@@ -269,6 +314,18 @@ func (s *Store) Update(id string, in UpdateInput) (*Doc, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
+	// 校验放在改动内存状态之前：失败时索引与磁盘都保持原样。
+	content := readBody(e.path)
+	if in.Content != nil {
+		if err := checkContent(*in.Content); err != nil {
+			return nil, err
+		}
+		content = *in.Content
+	}
+	// 换掉自己的旧版本，所以先减去自身当前体积再比配额。
+	if s.usedBytes()-int64(e.Size)+int64(len(content)) > s.quota {
+		return nil, ErrQuotaExceeded
+	}
 	if in.Title != nil {
 		e.Title = *in.Title
 	}
@@ -277,10 +334,6 @@ func (s *Store) Update(id string, in UpdateInput) (*Doc, error) {
 	}
 	if in.Tags != nil {
 		e.Tags = in.Tags
-	}
-	content := readBody(e.path)
-	if in.Content != nil {
-		content = *in.Content
 	}
 	e.Updated = time.Now()
 	e.Size = len(content)

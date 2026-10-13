@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -37,9 +38,28 @@ func writeErr(w http.ResponseWriter, r *http.Request, status int, msg string) {
 }
 
 // writeBadReq 返回本地化的「请求格式错误」，原始错误只写日志、不回给客户端。
+// 请求体超限（http.MaxBytesReader）单独回 413，客户端据此提示「文件太大」。
 func writeBadReq(w http.ResponseWriter, r *http.Request, key i18n.Key, err error) {
 	log.Printf("api %s %s: %v", r.Method, r.URL.Path, err)
+	var mbe *http.MaxBytesError
+	if errors.As(err, &mbe) {
+		writeErr(w, r, http.StatusRequestEntityTooLarge, string(i18n.KeyBodyTooLarge))
+		return
+	}
 	writeErr(w, r, http.StatusBadRequest, string(key))
+}
+
+// storeErrStatus 把存储层的已知错误映射到 HTTP 状态码，其余按内部错误处理。
+func storeErrStatus(err error) int {
+	switch {
+	case errors.Is(err, store.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, store.ErrNotText):
+		return http.StatusUnsupportedMediaType
+	case errors.Is(err, store.ErrDocTooLarge), errors.Is(err, store.ErrQuotaExceeded):
+		return http.StatusRequestEntityTooLarge
+	}
+	return http.StatusInternalServerError
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
@@ -102,7 +122,7 @@ func (s *Server) createDoc(w http.ResponseWriter, r *http.Request) {
 		Source:   in.Source,
 	})
 	if err != nil {
-		writeErr(w, r, http.StatusInternalServerError, err.Error())
+		writeErr(w, r, storeErrStatus(err), err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"doc": d})
@@ -126,7 +146,7 @@ func (s *Server) updateDoc(w http.ResponseWriter, r *http.Request) {
 		Category: in.Category,
 	})
 	if err != nil {
-		writeErr(w, r, http.StatusNotFound, err.Error())
+		writeErr(w, r, storeErrStatus(err), err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"doc": d})
@@ -208,7 +228,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		for _, h := range fh {
 			doc, err := saveUpload(stOf(r), h)
 			if err != nil {
-				writeErr(w, r, http.StatusInternalServerError, err.Error())
+				writeErr(w, r, storeErrStatus(err), err.Error())
 				return
 			}
 			created = append(created, doc)

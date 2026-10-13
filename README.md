@@ -114,7 +114,7 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | GET | `/api/share/{user}/{id}/{sig}` | **Anonymous** read-only access (share) |
 | GET | `/api/share/{user}/{id}/{sig}/download` | **Anonymous** .md download (share) |
 | GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
-| POST | `/api/upload` | Multipart upload of multiple .md files |
+| POST | `/api/upload` | Multipart upload of multiple .md files (UTF-8 text only, ≤2 MB each) |
 | POST | `/api/preview` | `{content}` → `{html}` |
 | POST | `/mcp` | MCP Streamable HTTP endpoint (user token only; exposes only that user's own documents) |
 
@@ -162,5 +162,6 @@ scripts/git-backup.sh  scheduled git backup of the data directory
 - Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery page (a forgotten password must be handled by hand).
 - Preview rendering permits inline HTML (`WithUnsafe`), but the output goes through a whitelist sanitizer (bluemonday UGC): `<script>`, inline event handlers, `<iframe>` and `javascript:` links are stripped, while safe HTML such as `<details>`, `<br>` and tables is kept.
 - Archiving is a soft delete; **deleting is permanent** and cannot be undone.
+- Writes are bounded: the body must be UTF-8 text (a binary renamed to `.md` is rejected with 415), max 2 MB per document, 200 MB per user (archived files included) and 32 MB per request. The thresholds are constants in `internal/store/store.go`.
 - PDF export uses client-side html2pdf to snapshot the page into images and slice them into pages; very long code blocks or huge tables can still paginate imperfectly.
 - A "stale-document candidate list + automatic cleanup" is planned for the next phase.

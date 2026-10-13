@@ -109,7 +109,7 @@ func main() {
 	})
 	mux.Handle("/", staticFiles(webRoot))
 
-	srv := &http.Server{Addr: *addr, Handler: securityHeaders(mux)}
+	srv := &http.Server{Addr: *addr, Handler: securityHeaders(limitBody(mux))}
 	go func() {
 		log.Printf("mdbox %s 启动于 %s，文档目录 %s，用户表 %s，开放注册: %v",
 			version, *addr, mustAbs(*dataDir), *usersPath, cfg.RegisterOpen())
@@ -125,6 +125,20 @@ func main() {
 	defer cancel()
 	_ = srv.Shutdown(ctx)
 	log.Print("已停止")
+}
+
+// maxRequestBytes 限制单次请求体大小。文档本身另有更小的上限（store.MaxDocBytes），
+// 这里挡的是「一次请求灌爆内存/临时目录」，覆盖 /api 与 /mcp。
+const maxRequestBytes = 32 << 20
+
+// limitBody 给请求体套一层上限；超限时读取返回 *http.MaxBytesError，由 api 层翻成 413。
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBytes)
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // securityHeaders 给所有响应加上安全头。
