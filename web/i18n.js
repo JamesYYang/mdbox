@@ -56,6 +56,7 @@
       'action.dialog_title': '提示',
 
       'nav.title': '目录',
+      'toc.title': '本页目录',
       'nav.open': '打开目录',
       'nav.categories': '分类',
       'nav.tags': '标签',
@@ -186,6 +187,7 @@
       'action.dialog_title': 'Notice',
 
       'nav.title': 'Contents',
+      'toc.title': 'On this page',
       'nav.open': 'Open contents',
       'nav.categories': 'Categories',
       'nav.tags': 'Tags',

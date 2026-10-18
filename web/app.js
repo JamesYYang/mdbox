@@ -195,6 +195,7 @@
     ['d-preview', 'e-preview', 'list', 'list-head', 'side-categories', 'side-tags', 'mcp-http', 'mcp-stdio'].forEach(function (id) {
       if ($(id)) { $(id).innerHTML = ''; }
     });
+    clearToc($('doc-toc'));
     ['d-source', 'e-title', 'e-category', 'e-tags', 'search', 'share-link'].forEach(function (id) {
       if ($(id)) { $(id).value = ''; }
     });
@@ -508,6 +509,81 @@
     }
   }
 
+  /* ---------- 右侧目录（只收 h1/h2） ---------- */
+  // 不依赖标题 id：bluemonday 的 id 白名单只认 ASCII，中文标题的 id 会被清掉。
+  // 所以这里直接持有标题元素，点击时 scrollIntoView，也避开和 #/doc/ 哈希路由抢锚点。
+  function clearToc(nav) {
+    if (nav._tocOff) { nav._tocOff(); nav._tocOff = null; }
+    nav.innerHTML = '';
+    nav.hidden = true;
+  }
+
+  function buildToc(article, nav, scroller) {
+    clearToc(nav);
+    var heads = article.querySelectorAll('h1, h2');
+    if (heads.length < 2) { return; } // 只有标题没有分节的文档，目录没有意义
+
+    // 文档可能只用了 ##，此时不缩进；有 # 时才把 ## 缩进一级。
+    var minLevel = 2;
+    Array.prototype.forEach.call(heads, function (h) {
+      if (h.tagName === 'H1') { minLevel = 1; }
+    });
+
+    var title = document.createElement('div');
+    title.className = 'toc-title';
+    title.setAttribute('data-i18n', 'toc.title');
+    title.textContent = I18N.t('toc.title');
+
+    var list = document.createElement('div');
+    list.className = 'toc-list';
+    var items = [];
+    Array.prototype.forEach.call(heads, function (h) {
+      var lvl = h.tagName === 'H1' ? 1 : 2;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'toc-item' + (lvl > minLevel ? ' lvl2' : '');
+      btn.textContent = h.textContent.trim();
+      btn.title = btn.textContent;
+      btn.addEventListener('click', function () {
+        h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      list.appendChild(btn);
+      items.push({ btn: btn, head: h });
+    });
+
+    nav.appendChild(title);
+    nav.appendChild(list);
+    nav.hidden = false;
+
+    // 滚动高亮：取越过视口上沿 80px 的最后一个标题。
+    var ticking = false;
+    function sync() {
+      ticking = false;
+      var line = scroller.getBoundingClientRect().top + 80;
+      var at = 0;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].head.getBoundingClientRect().top <= line) { at = i; }
+      }
+      // 最后一节太短时滚不到顶部，直接按「已到底」高亮最后一条。
+      // 内容不够长（没有可滚动距离）时不能这样判定，否则一打开就高亮最后一条。
+      if (scroller.scrollHeight > scroller.clientHeight + 4 &&
+          scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 4) {
+        at = items.length - 1;
+      }
+      for (var j = 0; j < items.length; j++) {
+        items[j].btn.classList.toggle('active', j === at);
+      }
+    }
+    function onScroll() {
+      if (ticking) { return; }
+      ticking = true;
+      requestAnimationFrame(sync);
+    }
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    nav._tocOff = function () { scroller.removeEventListener('scroll', onScroll); };
+    sync();
+  }
+
   function openDoc(id) {
     return api('/api/docs/' + id).then(function (data) {
       state.current = data.doc;
@@ -522,8 +598,11 @@
         state.pushed = true;
       }
       showContent('preview');
+      $('pane-preview').scrollTop = 0;
+      buildToc($('d-preview'), $('doc-toc'), $('pane-preview'));
     }).catch(function (e) {
       showContent('list');
+      clearToc($('doc-toc'));
       if (hashDocId()) { history.replaceState(null, '', listUrl()); state.pushed = false; }
       loadList();
       if (state.user) { uiAlert(e.message || I18N.t('doc.open_failed'), { title: I18N.t('doc.open_failed') }); }
@@ -1008,17 +1087,29 @@
     bindShareEvents();
     var parts = location.pathname.split('/').filter(Boolean); // ['s', user, id, sig]
     var content = $('share-content');
-    if (parts.length < 4) { content.innerHTML = '<p>' + I18N.t('share.invalid') + '</p>'; return; }
+    if (parts.length < 4) {
+      content.innerHTML = '<p>' + I18N.t('share.invalid') + '</p>';
+      clearToc($('share-toc'));
+      return;
+    }
     shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '' };
     fetch(shareApi(), { headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
-        if (!res.ok || res.data.error) { content.innerHTML = '<p>' + I18N.t('share.gone') + '</p>'; return; }
+        if (!res.ok || res.data.error) {
+          content.innerHTML = '<p>' + I18N.t('share.gone') + '</p>';
+          clearToc($('share-toc'));
+          return;
+        }
         shareCtx.title = res.data.doc.title || '';
         content.innerHTML = res.data.html || '';
+        buildToc(content, $('share-toc'), document.querySelector('.share-body'));
         refreshTitle();
       })
-      .catch(function () { content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>'; });
+      .catch(function () {
+        content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>';
+        clearToc($('share-toc'));
+      });
   }
 
   function shareApi() {

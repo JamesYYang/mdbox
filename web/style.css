@@ -206,7 +206,12 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 .title-input { flex: 1; min-width: 180px; font-size: 15px; font-weight: 600; }
 .meta-input { width: 160px; font-size: 13px; }
 
-.pane-preview { flex: 1; overflow: auto; padding: 24px 32px; background: var(--surface); }
+/* 阅读区：正文居中；宽屏时右侧留出目录位（目录在媒体查询里才显示） */
+.pane-preview {
+  flex: 1; overflow: auto; padding: 24px 32px; background: var(--surface);
+  display: flex; align-items: flex-start; justify-content: center; gap: 36px;
+}
+.pane-preview .markdown { flex: 0 1 1080px; min-width: 0; max-width: 1080px; }
 .panes { flex: 1; display: flex; min-height: 0; }
 .source {
   flex: 1; min-width: 0; padding: 16px 18px;
@@ -233,7 +238,7 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 }
 .docmeta .dm-shared { display: inline-flex; align-items: center; }
 /* 阅读区居中放宽，宽屏时不再左对齐留出一整块空白 */
-.pane-preview .markdown, .preview { max-width: 1080px; margin: 0 auto; }
+.preview { max-width: 1080px; margin: 0 auto; }
 
 /* ---------- 下拉菜单 ---------- */
 .dropdown { position: relative; }
@@ -285,14 +290,49 @@ button.danger { background: var(--danger); border-color: var(--danger); color: #
 button.danger:hover { filter: brightness(1.08); color: #fff; }
 
 /* ---------- 分享页 ---------- */
-.share-wrap { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+/* 固定视口高度，让 .share-body 成为真正的滚动容器：
+   否则页面整体随 document 滚动，sticky 目录会失效，滚动位置的判断也拿不到。 */
+.share-wrap { height: 100vh; height: 100dvh; display: flex; flex-direction: column; }
 .share-body { flex: 1; overflow: auto; background: var(--surface); }
 .share-inner { max-width: 1080px; margin: 0 auto; padding: 40px 20px; }
 .share-brand-tip { font-size: 12px; color: var(--muted); }
 
+/* ---------- 右侧目录 ---------- */
+/* 只在该场景确实放得下时才显示：正文 1080 + 间距 36 + 目录 200 */
+.toc {
+  display: none; flex: 0 0 200px; align-self: flex-start;
+  position: sticky; top: 20px; max-height: calc(100vh - 190px); overflow: auto;
+  font-size: 13px;
+}
+.toc-title { margin: 0 0 8px; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.toc-list { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+.toc-item {
+  display: block; width: 100%;
+  margin: 0 0 0 -1px; padding: 5px 0 5px 13px;
+  border: 0; border-left: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--muted); text-align: left;
+  line-height: 1.5; overflow: hidden; text-overflow: ellipsis;
+}
+.toc-item:hover { color: var(--text); border-color: transparent; border-left-color: var(--border); }
+.toc-item.lvl2 { padding-left: 26px; font-size: 12.5px; }
+.toc-item.active { color: var(--accent); border-left-color: var(--accent); }
+@media (min-width: 1600px) {
+  .pane-preview .toc { display: block; }
+}
+@media (min-width: 1360px) {
+  .share-inner {
+    max-width: 1360px;
+    display: flex; align-items: flex-start; justify-content: center; gap: 36px;
+  }
+  .share-inner .markdown { flex: 0 1 1080px; min-width: 0; }
+  .share-body .toc { display: block; }
+}
+
 /* ---------- Markdown 渲染 ---------- */
 .markdown { overflow-wrap: break-word; }
 .markdown h1, .markdown h2, .markdown h3 { line-height: 1.35; margin: 1.2em 0 .6em; }
+/* 目录跳转后给标题留一点上边距，不要贴着阅读区顶边 */
+.markdown h1, .markdown h2 { scroll-margin-top: 16px; }
 .markdown h1 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: .3em; }
 .markdown h2 { font-size: 1.25em; }
 .markdown h3 { font-size: 1.1em; }
