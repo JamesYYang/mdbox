@@ -480,6 +480,44 @@ func (s *Store) List(f ListFilter) ([]Doc, error) {
 	return hits, nil
 }
 
+// Overview 是列表页「近 N 天」概览的计数结果。
+type Overview struct {
+	New      int `json:"new"`
+	Updated  int `json:"updated"`
+	Archived int `json:"archived"`
+	Agent    int `json:"agent"`
+}
+
+// nonAgentSources 是不算作「agent 写入」的来源；其余（agent、codebuddy 等）都归为 agent。
+var nonAgentSources = map[string]bool{"": true, "web": true, "manual": true, "upload": true, "clone": true}
+
+// Overview 统计 since 以来的新增、更新、归档与 agent 写入数量。
+// 更新只算窗口前创建、窗口内修改的活跃文档，避免与新增重复计数。
+func (s *Store) Overview(since time.Time) Overview {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var o Overview
+	for _, e := range s.docs {
+		if !e.Created.Before(since) {
+			o.New++
+			if !nonAgentSources[e.Source] {
+				o.Agent++
+			}
+		}
+		if e.Status == "archived" {
+			if !e.Updated.Before(since) {
+				o.Archived++
+			}
+			continue
+		}
+		if e.Created.Before(since) && !e.Updated.Before(since) {
+			o.Updated++
+		}
+	}
+	return o
+}
+
 // Tags 返回标签及其文档数。
 func (s *Store) Tags() map[string]int {
 	s.mu.RLock()

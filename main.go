@@ -40,7 +40,7 @@ import (
 //go:embed web
 var webFS embed.FS
 
-const version = "0.3.0"
+const version = "0.4.2"
 
 func main() {
 	addr := flag.String("addr", ":8080", "HTTP 监听地址")

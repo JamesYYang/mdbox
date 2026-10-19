@@ -56,6 +56,7 @@ func New(reg *users.Registry, cfg *config.Config, sessions *auth.Sessions) http.
 	mux.HandleFunc("POST /api/me/token", s.resetToken)
 	mux.HandleFunc("POST /api/me/password", s.changePassword)
 	mux.HandleFunc("GET /api/health", s.health)
+	mux.HandleFunc("GET /api/overview", s.overview)
 	mux.HandleFunc("GET /api/docs", s.listDocs)
 	mux.HandleFunc("POST /api/docs", s.createDoc)
 	mux.HandleFunc("GET /api/docs/{id}", s.getDoc)

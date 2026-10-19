@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestStore(t *testing.T) *Store {
@@ -129,5 +130,76 @@ func TestUpdateRejectedLeavesDocUntouched(t *testing.T) {
 	// 只改元数据的更新不涉及正文，应当照常放行
 	if _, err := st.Update(d.ID, UpdateInput{Title: ptr("新标题")}); err != nil {
 		t.Errorf("纯元数据更新被拒: %v", err)
+	}
+}
+
+func TestOverviewCountsNewAndAgentSources(t *testing.T) {
+	st := newTestStore(t)
+	for _, src := range []string{"agent", "codebuddy", "web", ""} {
+		if _, err := st.Create(CreateInput{Title: src, Content: "x", Source: src}); err != nil {
+			t.Fatalf("创建失败: %v", err)
+		}
+	}
+
+	o := st.Overview(time.Now().Add(-time.Minute))
+	if o.New != 4 {
+		t.Errorf("new = %d, want 4", o.New)
+	}
+	if o.Agent != 2 {
+		t.Errorf("agent = %d, want 2（agent + codebuddy）", o.Agent)
+	}
+	if o.Updated != 0 || o.Archived != 0 {
+		t.Errorf("updated/archived = %d/%d, want 0/0", o.Updated, o.Archived)
+	}
+}
+
+func TestOverviewCountsUpdateWithoutDoubleCountingNew(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "t", Content: "x", Source: "web"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	since := time.Now()
+	time.Sleep(20 * time.Millisecond)
+	if _, err := st.Update(d.ID, UpdateInput{Title: ptr("t2")}); err != nil {
+		t.Fatalf("更新失败: %v", err)
+	}
+
+	o := st.Overview(since)
+	if o.Updated != 1 || o.New != 0 {
+		t.Errorf("overview = %+v, want updated=1 new=0", o)
+	}
+}
+
+func TestOverviewCountsArchived(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "t", Content: "x", Source: "web"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	since := time.Now()
+	time.Sleep(20 * time.Millisecond)
+	if _, err := st.Archive(d.ID); err != nil {
+		t.Fatalf("归档失败: %v", err)
+	}
+
+	o := st.Overview(since)
+	if o.Archived != 1 || o.New != 0 || o.Updated != 0 {
+		t.Errorf("overview = %+v, want archived=1 new=0 updated=0", o)
+	}
+}
+
+func TestOverviewIgnoresActivityOutsideWindow(t *testing.T) {
+	st := newTestStore(t)
+	if _, err := st.Create(CreateInput{Title: "t", Content: "x", Source: "agent"}); err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+
+	if o := st.Overview(time.Now().Add(time.Hour)); o != (Overview{}) {
+		t.Errorf("窗口外 overview = %+v, want 全 0", o)
 	}
 }

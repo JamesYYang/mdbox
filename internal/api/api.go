@@ -10,7 +10,9 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
 	"mdbox/internal/i18n"
 	"mdbox/internal/render"
@@ -64,6 +66,30 @@ func storeErrStatus(err error) int {
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// overview 返回列表页「近 N 天」的产出一览；只做聚合计数，不读正文。
+func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
+	days := 7
+	if v := r.URL.Query().Get("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			days = n
+		}
+	}
+	if days < 1 {
+		days = 1
+	}
+	if days > 90 {
+		days = 90
+	}
+	o := stOf(r).Overview(time.Now().AddDate(0, 0, -days))
+	writeJSON(w, http.StatusOK, map[string]any{
+		"days":     days,
+		"new":      o.New,
+		"updated":  o.Updated,
+		"archived": o.Archived,
+		"agent":    o.Agent,
+	})
 }
 
 func (s *Server) listDocs(w http.ResponseWriter, r *http.Request) {

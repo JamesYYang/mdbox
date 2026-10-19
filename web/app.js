@@ -13,6 +13,7 @@
     tag: '',
     q: '',
     docs: [],
+    overview: null,   // 列表页「近 7 天」概览；切语言时用它重渲染，不重复请求
     current: null,
     dirty: false,
     pushed: false      // 当前文档页是否由我们 pushState 进来的（决定「返回」能否直接 history.back）
@@ -80,6 +81,7 @@
       if (state.mode === 'list') {
         renderListHead();
         renderList();
+        renderOverview();
       } else if (state.mode === 'preview' && state.current) {
         renderDocMeta(state.current);
       }
@@ -185,6 +187,9 @@
     state.tag = '';
     state.q = '';
     state.docs = [];
+    state.overview = null;
+    var ov = $('overview');
+    if (ov) { ov.hidden = true; }
     state.current = null;
     state.dirty = false;
     state.pushed = false;
@@ -386,11 +391,54 @@
     if (state.q) { params.set('q', state.q); }
     if (state.tag) { params.set('tag', state.tag); }
     if (state.category) { params.set('category', state.category); }
+    loadOverview();
     return api('/api/docs?' + params.toString()).then(function (data) {
       state.docs = data.docs || [];
       renderListHead();
       renderList();
     }).catch(function () {});
+  }
+
+  // 概览是全局统计（不受筛选影响），因此独立请求；失败时静默隐藏，不干扰列表。
+  function loadOverview() {
+    return api('/api/overview?days=7').then(function (d) {
+      state.overview = d;
+      renderOverview();
+    }).catch(function () {});
+  }
+
+  function renderOverview() {
+    var el = $('overview');
+    var d = state.overview;
+    var total = d ? (d['new'] || 0) + (d.updated || 0) + (d.archived || 0) : 0;
+    if (!total) { el.hidden = true; return; }
+
+    el.innerHTML = '';
+    var range = document.createElement('span');
+    range.className = 'overview-range';
+    range.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+    range.appendChild(document.createTextNode(I18N.t('overview.range', { days: d.days })));
+    el.appendChild(range);
+
+    // 每个指标是「小标签 + 大数字」，中英文都不存在词序问题。
+    function stat(labelKey, n, cls) {
+      var box = document.createElement('span');
+      box.className = 'overview-stat' + (cls ? ' ' + cls : '');
+      var label = document.createElement('span');
+      label.className = 'overview-label';
+      label.textContent = I18N.t(labelKey);
+      var num = document.createElement('b');
+      num.textContent = n;
+      box.appendChild(label);
+      box.appendChild(num);
+      el.appendChild(box);
+    }
+    stat('overview.label_new', d['new']);
+    stat('overview.label_updated', d.updated);
+    stat('overview.label_archived', d.archived);
+    if (d.agent > 0) { stat('overview.label_agent', d.agent, 'agent'); }
+    el.hidden = false;
   }
 
   function renderListHead() {
