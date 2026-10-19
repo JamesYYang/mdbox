@@ -2,7 +2,7 @@
 
 [English](../README.md) · 中文
 
-一个自托管的 **Markdown 文档管理工具**：agent 产出的文档自动入库，人在任意浏览器里阅读、编辑、归类、打标签、上传、下载、分享；同时通过 **MCP** 让任意 agent 读写这个库。
+一个自托管的 **Markdown 文档管理工具**：agent 产出的文档可通过 **MCP** 直接写入，人在任意浏览器里阅读、编辑、归类、打标签、上传、下载、分享；人和 agent 共用同一份存储。
 
 设计原则：**文档永远是纯 `.md` 文件 + YAML frontmatter，工具只是它的一个视图。** 存储层不用数据库，直接落在磁盘目录，git 负责版本与异地备份。
 
@@ -11,13 +11,14 @@
 - **Web UI**
   - **登录 / 注册**：多用户，用户名自助注册（可在 `config.yaml` 用 `allow_register: false` 关闭）；每人的文档彼此隔离
   - **中英双语界面**：英文 / 中文，顶栏、登录页、分享页均可一键切换，默认跟随浏览器语言
-  - **顶栏**：产品名 + Logo、MCP 接入（弹窗给出**你自己的** token 与接入配置，可重置）、浅色/深色主题切换、用户信息与退出
+  - **顶栏**：产品名 + Logo、MCP 接入（弹窗给出**你自己的** token 与接入配置，可重置）、浅色/深色主题切换、账号菜单（修改密码 / 退出）
   - **左侧栏**：分类 / 标签 / 归档，一键筛选
   - **卡片列表**：全文搜索、悬停显示删除按钮（二次确认后彻底删除）
+  - **列表概览**：文档页顶部一条统计条，展示近 7 天的新增 / 更新 / 归档 / Agent 写入
   - **阅读与编辑**：默认**只读预览**，点「编辑」进入左源码右实时预览的双栏模式，可改标题/分类/标签/归档
   - **上传 / 下载**：拖拽或选择多个 `.md`；预览模式下可下载 Markdown 或**导出 PDF**
-- **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，任何人凭链接免登录只读查看，可随时关闭撤销
-- **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、multipart 上传、Markdown 渲染、分享
+- **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，任何人凭链接免登录只读查看，可随时关闭撤销；登录用户可「复制到我的库」，把文档复制一份到自己库里
+- **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、近 7 天概览、multipart 上传、Markdown 渲染、分享与 clone
 - **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
 - **鉴权**：Web 用登录会话（Cookie），agent/脚本用**每个用户各自的 token**，两者都只能访问该用户自己的文档
 - **git 自动备份**：数据目录本身是 git 仓库，定时提交并推送远端
@@ -64,6 +65,8 @@ https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>
 
 `sig` 由 `secret` 用固定算法生成，所以同一篇文档每次都是**同一个地址**；更改 `secret` 会让所有已分享链接立即失效，关闭分享则该链接返回 404。分享页只读，不能编辑。
 
+已登录的访问者可以点「复制到我的库」，把文档复制一份到自己的库里（只带标题 + 正文，`source=clone`），源文档不受影响。这是**单向拷贝**，不是多人共编。
+
 ## MCP 接入
 
 HTTP 模式（远程 agent，如 CodeBuddy / Claude 等）。token 是你自己账号的，在 Web 顶栏「MCP 接入」里查看；该 agent 只能访问你自己的文档：
@@ -103,6 +106,7 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | POST | `/api/me/token` | 重置当前用户的 token |
 | POST | `/api/me/password` | 修改当前用户密码，body `{"old","new"}`；成功后其他登录会话失效 |
 | GET | `/api/health` | 健康检查 |
+| GET | `/api/overview?days=7` | 近 N 天的新增 / 更新 / 归档 / Agent 写入计数（1–90 天） |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | 列表 / 搜索 |
 | POST | `/api/docs` | 创建 `{title, content, tags, category, source}` |
 | GET | `/api/docs/{id}` | 读取（含正文与渲染 HTML；已分享时附带 shareUrl） |
@@ -113,6 +117,7 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | GET | `/api/docs/{id}/download` | 下载 .md |
 | GET | `/api/share/{user}/{id}/{sig}` | **匿名**只读读取（分享） |
 | GET | `/api/share/{user}/{id}/{sig}/download` | **匿名**下载 .md（分享） |
+| POST | `/api/clone/{user}/{id}/{sig}` | **需登录**：把已分享文档复制到自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
 | POST | `/api/upload` | multipart 上传多个 .md（仅 UTF-8 文本，单篇 ≤2MB） |
 | POST | `/api/preview` | `{content}` → `{html}` |
@@ -147,7 +152,7 @@ internal/store/        存储层：frontmatter 解析、内存索引、CRUD
 internal/render/       Markdown → HTML（goldmark）
 internal/api/          REST API 与鉴权
 internal/mcp/          MCP 工具定义
-internal/config/       config.yaml（初始账号 / 分享 secret / 是否开放注册）
+internal/config/       config.yaml（分享 secret / 是否开放注册；无预置账号）
 internal/users/        用户注册表 users.yaml、密码哈希、token、按用户的 Store
 internal/auth/         内存登录会话
 web/                   前端（embed 进二进制，部署单文件）
@@ -155,13 +160,12 @@ web/vendor/            本地内置的 html2pdf（PDF 导出用）
 scripts/git-backup.sh  数据目录 git 自动备份
 ```
 
-## 已知取舍（MVP）
+## 已知取舍
 
 - 元数据索引在内存中启动时全量重建，**外部直接增删 data 目录文件后，服务会在下次请求时自动重建**；万篇以内无压力
 - 登录会话存在内存，进程重启后所有人需重新登录；请以**单实例**运行
-- 多用户只做到「文档隔离」：没有角色/权限、没有用户间共享、没有找回/修改密码页面（忘记密码需管理员手动处理）
+- 多用户只做到「文档隔离」：没有角色/权限、没有用户间共享、没有找回密码流程（修改密码需校验旧密码；忘记密码只能人工处理）
 - 预览渲染允许内联 HTML（`WithUnsafe`），但输出会经白名单清洗（bluemonday UGC）：`<script>`、内联事件属性、`<iframe>`、`javascript:` 链接等一律剔除，`<details>`、`<br>`、表格这类安全 HTML 保留
 - 归档是软删除；**删除则是真删**，不可恢复
 - 写入有上限：正文必须是 UTF-8 文本（把二进制改名成 `.md` 会被拒，回 415），单篇 2MB、每人 200MB（归档也算）、单次请求 32MB；阈值是 `internal/store/store.go` 里的常量，改完记得同步 i18n 文案
 - PDF 由浏览器端 html2pdf 把整页截成图片再切片分页，超长代码块或超大表格仍可能有分页瑕疵
-- 「过期候选清单 + 自动清理」计划在下一阶段

@@ -2,7 +2,7 @@
 
 English · [中文](docs/README-ZH.md)
 
-A self-hosted **Markdown document manager**: documents produced by agents flow in automatically, while you read, edit, organize, tag, upload, download, and share them from any browser — and any agent can read and write the same library through **MCP**.
+A self-hosted **Markdown document manager**: documents produced by agents can be written straight into the library through **MCP**, while you read, edit, organize, tag, upload, download, and share them from any browser — humans and agents work on the same store.
 
 Design principle: **a document is always a plain `.md` file with YAML frontmatter; the tool is just a view over it.** There is no database in the storage layer — everything lands in a directory on disk, and git handles versioning and off-site backup.
 
@@ -11,13 +11,14 @@ Design principle: **a document is always a plain `.md` file with YAML frontmatte
 - **Web UI**
   - **Login / registration**: multi-user, self-service sign-up (disable with `allow_register: false` in `config.yaml`); each user's documents are isolated
   - **Bilingual UI**: English / Chinese, switchable from the top bar, the login page, and the share page; defaults to your browser language
-  - **Top bar**: product name + logo, MCP access (a dialog shows **your own** token and connection config, and can reset it), light/dark theme switch, account info and sign-out
+  - **Top bar**: product name + logo, MCP access (a dialog shows **your own** token and connection config, and can reset it), light/dark theme switch, account menu with change-password and sign-out
   - **Sidebar**: categories / tags / archive, with one-click filtering
   - **Card list**: full-text search; hovering a card reveals a delete button (permanent delete, after a confirmation)
+  - **List overview**: a compact strip on the documents page shows the last 7 days — new / updated / archived / written by agents
   - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags and archive the document
   - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
-- **Sharing**: enable sharing per document to get a **stable, deterministically signed link**; anyone with the link can read it without signing in, and you can turn it off at any time
-- **REST API**: login/registration, document CRUD, search, tag/category aggregation, multipart upload, Markdown rendering, sharing
+- **Sharing**: enable sharing per document to get a **stable, deterministically signed link**; anyone with the link can read it without signing in, and you can turn it off at any time. A signed-in visitor can use **Copy to my library** to take an independent copy into their own library
+- **REST API**: login/registration, document CRUD, search, tag/category aggregation, 7-day overview, multipart upload, Markdown rendering, sharing and cloning
 - **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, over HTTP (Streamable) or stdio
 - **Auth**: the web app uses a login session (cookie); agents/scripts use a **per-user token**; either way, only that user's own documents are reachable
 - **Automatic git backup**: the data directory is itself a git repository, committed and pushed on a schedule
@@ -64,6 +65,8 @@ https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>
 
 `sig` is derived deterministically from `secret`, so the same document always has **the same URL**; changing `secret` invalidates every shared link at once, and turning sharing off makes the link return 404. The share page is read-only.
 
+A signed-in visitor can click **Copy to my library** to create an independent copy of a shared document in their own library (title + body only, `source=clone`); the original is untouched, and this is a one-way copy rather than collaborative editing.
+
 ## MCP setup
 
 HTTP mode (remote agents, e.g. CodeBuddy / Claude). The token belongs to your own account — view it under "MCP access" in the top bar; the agent can only reach your own documents:
@@ -103,6 +106,7 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | POST | `/api/me/token` | Reset the current user's token |
 | POST | `/api/me/password` | Change the current user's password, body `{"old","new"}`; invalidates other sessions on success |
 | GET | `/api/health` | Health check |
+| GET | `/api/overview?days=7` | Last N days: new / updated / archived / written by agents (1–90 days) |
 | GET | `/api/docs?tag=&category=&status=&q=&limit=` | List / search |
 | POST | `/api/docs` | Create `{title, content, tags, category, source}` |
 | GET | `/api/docs/{id}` | Read (with body and rendered HTML; includes shareUrl when shared) |
@@ -113,6 +117,7 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | GET | `/api/docs/{id}/download` | Download the .md |
 | GET | `/api/share/{user}/{id}/{sig}` | **Anonymous** read-only access (share) |
 | GET | `/api/share/{user}/{id}/{sig}/download` | **Anonymous** .md download (share) |
+| POST | `/api/clone/{user}/{id}/{sig}` | **Signed-in** copy of a shared document into your own library (title + body only, `source=clone`) |
 | GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
 | POST | `/api/upload` | Multipart upload of multiple .md files (UTF-8 text only, ≤2 MB each) |
 | POST | `/api/preview` | `{content}` → `{html}` |
@@ -147,7 +152,7 @@ internal/store/        storage: frontmatter parsing, in-memory index, CRUD
 internal/render/       Markdown → HTML (goldmark)
 internal/api/          REST API and auth
 internal/mcp/          MCP tool definitions
-internal/config/       config.yaml (initial account / share secret / registration toggle)
+internal/config/       config.yaml (share secret / registration toggle; no seeded account)
 internal/users/        users.yaml registry, password hashing, tokens, per-user Store
 internal/auth/         in-memory login sessions
 web/                   frontend (embedded in the binary, single-file deploy)
@@ -155,13 +160,12 @@ web/vendor/            local copy of html2pdf (for PDF export)
 scripts/git-backup.sh  scheduled git backup of the data directory
 ```
 
-## Known trade-offs (MVP)
+## Known trade-offs
 
 - The metadata index is fully rebuilt from disk at startup; **if you add or remove files in the data directory externally, the service rebuilds on the next request.** Fine up to roughly 10k documents.
 - Login sessions live in memory; a restart signs everyone out — run it as a **single instance**.
-- Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery page (a forgotten password must be handled by hand).
+- Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery flow (changing a password requires the old one; a forgotten password must be handled by hand).
 - Preview rendering permits inline HTML (`WithUnsafe`), but the output goes through a whitelist sanitizer (bluemonday UGC): `<script>`, inline event handlers, `<iframe>` and `javascript:` links are stripped, while safe HTML such as `<details>`, `<br>` and tables is kept.
 - Archiving is a soft delete; **deleting is permanent** and cannot be undone.
 - Writes are bounded: the body must be UTF-8 text (a binary renamed to `.md` is rejected with 415), max 2 MB per document, 200 MB per user (archived files included) and 32 MB per request. The thresholds are constants in `internal/store/store.go`.
 - PDF export uses client-side html2pdf to snapshot the page into images and slice them into pages; very long code blocks or huge tables can still paginate imperfectly.
-- A "stale-document candidate list + automatic cleanup" is planned for the next phase.
