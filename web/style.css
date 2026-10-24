@@ -290,6 +290,7 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 .copy-btn { margin-top: 8px; font-size: 13px; padding: 5px 10px; }
 .switch-row { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; cursor: pointer; }
 .switch-row input { margin-top: 3px; }
+.switch-row select { margin-top: 2px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; }
 .share-copy { display: flex; gap: 8px; align-items: center; }
 .share-link { flex: 1; min-width: 0; font-size: 13px; }
 
@@ -308,6 +309,18 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 .share-body { flex: 1; overflow: auto; background: var(--surface); }
 .share-inner { max-width: 1080px; margin: 0 auto; padding: 40px 20px; }
 .share-brand-tip { font-size: 12px; color: var(--muted); }
+
+/* 分享页编辑态：占满 .share-body，两栏等宽，窄屏上下堆叠。 */
+.share-body.editing { overflow: hidden; }
+.share-editor { display: flex; flex-direction: column; height: 100%; }
+.share-editbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.share-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
+.share-panes .source { border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: 16px 14px; resize: none; }
+.share-panes .preview { overflow: auto; padding: 16px 20px; }
+@media (max-width: 860px) {
+  .share-panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .share-panes .source { border-right: 0; border-bottom: 1px solid var(--border); }
+}
 
 /* ---------- 右侧目录 ---------- */
 /* 只在该场景确实放得下时才显示：正文 1080 + 间距 36 + 目录 200 */

@@ -44,7 +44,7 @@
 <section id="view-share" class="share-wrap" hidden>
   <header class="topbar">
     <div id="share-brand" class="brand clickable"><img class="logo" src="/mdbox.png" alt="MDBox">MDBox<span class="brand-slogan" data-i18n="brand.slogan">· 人写，Agent 也写</span></div>
-    <span class="share-brand-tip" data-i18n="share.brand_tip">只读分享</span>
+    <span id="share-brand-tip" class="share-brand-tip">只读分享</span>
     <div class="spacer"></div>
     <button id="share-theme-btn" class="icon-btn" title="切换主题" aria-label="切换主题" data-i18n-title="action.theme" data-i18n-aria="action.theme">
       <span id="share-theme-icon">◐</span>
@@ -56,6 +56,8 @@
         <ellipse cx="12" cy="12" rx="4.2" ry="9"/>
       </svg>
     </button>
+    <span id="share-msg" class="msg"></span>
+    <button id="share-edit" class="ghost" data-i18n="share.edit" hidden>编辑</button>
     <button id="share-clone" class="ghost" data-i18n="share.clone">复制到我的库</button>
     <div class="dropdown">
       <button id="share-download" class="ghost" data-i18n="action.download">下载 ▾</button>
@@ -69,6 +71,18 @@
     <div class="share-inner">
       <article id="share-content" class="markdown"></article>
       <nav id="share-toc" class="toc" hidden data-i18n-aria="toc.title"></nav>
+    </div>
+    <div id="share-editor" class="share-editor" hidden>
+      <div class="share-editbar">
+        <span id="share-edit-hint" class="msg" data-i18n="share.edit_hint">保存后对方立即看到，无版本历史</span>
+        <span class="spacer"></span>
+        <button id="share-edit-cancel" class="ghost" data-i18n="share.cancel">取消</button>
+        <button id="share-edit-save" class="primary" data-i18n="share.save">保存</button>
+      </div>
+      <div class="share-panes">
+        <textarea id="share-source" class="source" spellcheck="false"></textarea>
+        <div id="share-preview" class="preview markdown"></div>
+      </div>
     </div>
   </div>
 </section>

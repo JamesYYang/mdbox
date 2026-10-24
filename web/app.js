@@ -19,7 +19,8 @@
     pushed: false      // 当前文档页是否由我们 pushState 进来的（决定「返回」能否直接 history.back）
   };
   var previewTimer = null;
-  var shareCtx = null;
+  var shareCtx = null; // { user, id, sig, title, mode, content, editing, draft }
+  var sharePreviewTimer = null;
 
   /* ---------- 主题 ---------- */
 
@@ -70,6 +71,7 @@
   // applyLang 在切换语言后重渲染当前视图；不触碰编辑态输入内容。
   function applyLang() {
     I18N.applyStatic();
+    if (shareCtx) { updateShareChrome(); }
     refreshTitle();
     updateLangBtn();
     if (!$('view-login').hidden) {
@@ -1155,7 +1157,8 @@
       clearToc($('share-toc'));
       return;
     }
-    shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '' };
+    var draft = shareCtx ? shareCtx.draft : null;
+    shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '', mode: 'off', content: '', editing: false, draft: draft };
     fetch(shareApi(), { headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
@@ -1164,15 +1167,88 @@
           clearToc($('share-toc'));
           return;
         }
-        shareCtx.title = res.data.doc.title || '';
+        var doc = res.data.doc || {};
+        shareCtx.title = doc.title || '';
+        shareCtx.mode = doc.share_mode || 'off';
+        shareCtx.content = doc.content || '';
         content.innerHTML = res.data.html || '';
         buildToc(content, $('share-toc'), document.querySelector('.share-body'));
+        updateShareChrome();
         refreshTitle();
+        if (shareCtx.draft != null) { enterShareEdit(); }
       })
       .catch(function () {
         content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>';
         clearToc($('share-toc'));
       });
+  }
+
+  // 按分享模式刷新顶栏：可编辑时显示「编辑」按钮并改文案。
+  function updateShareChrome() {
+    if (!shareCtx) { return; }
+    var editable = shareCtx.mode === 'edit';
+    $('share-edit').hidden = !editable;
+    $('share-brand-tip').textContent = I18N.t(editable ? 'share.brand_tip_edit' : 'share.brand_tip');
+  }
+
+  function enterShareEdit() {
+    if (!shareCtx || shareCtx.mode !== 'edit') { return; }
+    shareCtx.editing = true;
+    $('share-source').value = shareCtx.draft != null ? shareCtx.draft : shareCtx.content;
+    $('share-preview').innerHTML = $('share-content').innerHTML;
+    $('share-content').hidden = true;
+    $('share-toc').hidden = true;
+    $('share-editor').hidden = false;
+    document.querySelector('.share-body').classList.add('editing');
+    $('share-source').focus();
+  }
+
+  function exitShareEdit() {
+    if (!shareCtx) { return; }
+    shareCtx.editing = false;
+    shareCtx.draft = null;
+    $('share-editor').hidden = true;
+    $('share-content').hidden = false;
+    document.querySelector('.share-body').classList.remove('editing');
+    buildToc($('share-content'), $('share-toc'), document.querySelector('.share-body'));
+  }
+
+  function cancelShareEdit() {
+    if (!shareCtx) { return; }
+    if ($('share-source').value === shareCtx.content) { exitShareEdit(); return; }
+    uiConfirm(I18N.t('doc.discard_confirm'), {
+      title: I18N.t('doc.discard_title'), confirmText: I18N.t('doc.discard_ok'), danger: true
+    }).then(function (ok) { if (ok) { exitShareEdit(); } });
+  }
+
+  function saveShareEdit() {
+    if (!shareCtx) { return; }
+    var content = $('share-source').value;
+    fetch(shareApi(), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept-Language': I18N.lang() },
+      body: JSON.stringify({ content: content })
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) { return { status: r.status, data: d }; });
+    }).then(function (res) {
+      if (res.status === 401) {
+        shareCtx.draft = content; // 放在 shareCtx 上，showLogin 里的 resetSession 不会清掉
+        showLogin();
+        return;
+      }
+      if (res.status === 404) {
+        exitShareEdit();
+        uiAlert(I18N.t('share.gone_on_save'), { title: I18N.t('action.dialog_title') });
+        return;
+      }
+      if (res.status !== 200) { throw new Error(res.data.error || I18N.t('share.save_failed')); }
+      shareCtx.content = content;
+      $('share-content').innerHTML = res.data.html || '';
+      exitShareEdit();
+      msg('share-msg', I18N.t('share.save_ok'));
+    }).catch(function (e) {
+      uiAlert(e.message || I18N.t('share.save_failed'), { title: I18N.t('action.dialog_title') });
+    });
   }
 
   function shareApi() {
@@ -1184,6 +1260,24 @@
     $('share-theme-btn').addEventListener('click', toggleTheme);
     $('share-brand').addEventListener('click', function () { location.href = '/'; });
     $('share-clone').addEventListener('click', cloneShared);
+    $('share-edit').addEventListener('click', enterShareEdit);
+    $('share-edit-save').addEventListener('click', saveShareEdit);
+    $('share-edit-cancel').addEventListener('click', cancelShareEdit);
+    $('share-source').addEventListener('input', function () {
+      var v = this.value;
+      clearTimeout(sharePreviewTimer);
+      sharePreviewTimer = setTimeout(function () {
+        api('/api/preview', {
+          method: 'POST',
+          body: JSON.stringify({ content: v }),
+          headers: { 'Content-Type': 'application/json' },
+          noAuthRedirect: true
+        }).then(function (r) { $('share-preview').innerHTML = r.html || ''; })
+          .catch(function () {
+            $('share-preview').innerHTML = '<p class="msg">' + I18N.t('share.preview_need_login') + '</p>';
+          });
+      }, 300);
+    });
     $('share-download').addEventListener('click', function (e) {
       e.stopPropagation();
       $('share-download-menu').hidden = !$('share-download-menu').hidden;
