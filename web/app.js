@@ -1153,16 +1153,21 @@
     var parts = location.pathname.split('/').filter(Boolean); // ['s', user, id, sig]
     var content = $('share-content');
     if (parts.length < 4) {
+      exitShareEdit(); // 上一条链接可能还停在编辑态，先复位 DOM
+      updateShareChrome();
       content.innerHTML = '<p>' + I18N.t('share.invalid') + '</p>';
       clearToc($('share-toc'));
       return;
     }
     var draft = shareCtx ? shareCtx.draft : null;
     shareCtx = { user: parts[1], id: parts[2], sig: parts[3], title: '', mode: 'off', content: '', editing: false, draft: draft };
+    // mode 此刻是 'off'：先按只读刷一次顶栏，加载失败时文案/按钮也是对的。
+    updateShareChrome();
     fetch(shareApi(), { headers: { 'Accept-Language': I18N.lang() } })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
         if (!res.ok || res.data.error) {
+          exitShareEdit(); // 链接失效/关闭编辑：别把残留编辑器留在页面上
           content.innerHTML = '<p>' + I18N.t('share.gone') + '</p>';
           clearToc($('share-toc'));
           return;
@@ -1178,6 +1183,7 @@
         if (shareCtx.draft != null) { enterShareEdit(); }
       })
       .catch(function () {
+        exitShareEdit();
         content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>';
         clearToc($('share-toc'));
       });
@@ -1185,8 +1191,8 @@
 
   // 按分享模式刷新顶栏：可编辑时显示「编辑」按钮并改文案。
   function updateShareChrome() {
-    if (!shareCtx) { return; }
-    var editable = shareCtx.mode === 'edit';
+    // 不用 shareCtx 判空：链接还没解析出来（parts 不足）时也要把顶栏文案刷成当前语言。
+    var editable = !!shareCtx && shareCtx.mode === 'edit';
     $('share-edit').hidden = !editable;
     $('share-brand-tip').textContent = I18N.t(editable ? 'share.brand_tip_edit' : 'share.brand_tip');
   }
@@ -1237,7 +1243,9 @@
         return;
       }
       if (res.status === 404) {
+        shareCtx.mode = 'off'; // 分享已关闭/失效：顶栏收起「编辑」，避免再点再失败
         exitShareEdit();
+        updateShareChrome();
         uiAlert(I18N.t('share.gone_on_save'), { title: I18N.t('action.dialog_title') });
         return;
       }

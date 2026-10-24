@@ -310,15 +310,20 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
 .share-inner { max-width: 1080px; margin: 0 auto; padding: 40px 20px; }
 .share-brand-tip { font-size: 12px; color: var(--muted); }
 
-/* 分享页编辑态：占满 .share-body，两栏等宽，窄屏上下堆叠。 */
-.share-body.editing { overflow: hidden; }
-.share-editor { display: flex; flex-direction: column; height: 100%; }
-.share-editbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
-.share-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; }
-.share-panes .source { border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: 16px 14px; resize: none; }
+/* 分享页编辑态：占满 .share-body，两栏等宽，窄屏上下堆叠。
+   高度链：.share-wrap(100dvh, flex column) → .share-body(flex:1) → .share-editor(flex:1)
+   → .share-panes(flex:1) → 两栏各自滚动。片段化 flex 链上不依赖百分比高度。 */
+.share-body.editing { display: flex; flex-direction: column; overflow: hidden; }
+/* .share-inner 只隐藏子元素时自身仍占 padding 高度，会把编辑器顶出可视区、底部被裁掉，
+   所以编辑态整块不渲染。 */
+.share-body.editing .share-inner { display: none; }
+.share-editor { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.share-editbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); }
+.share-panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 1fr); }
+.share-panes .source { min-height: 0; border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: 16px 14px; resize: none; }
 .share-panes .preview { overflow: auto; padding: 16px 20px; }
 @media (max-width: 860px) {
-  .share-panes { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .share-panes { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
   .share-panes .source { border-right: 0; border-bottom: 1px solid var(--border); }
 }
 
