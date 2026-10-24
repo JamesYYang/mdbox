@@ -30,20 +30,24 @@ func (s *Server) validSig(user, id, got string) bool {
 
 func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		Shared bool `json:"shared"`
+		Mode string `json:"mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
+	if !store.ValidShareMode(in.Mode) {
+		writeErr(w, r, http.StatusBadRequest, string(i18n.KeyBadShareMode))
+		return
+	}
 	id := r.PathValue("id")
-	d, err := stOf(r).SetShared(id, in.Shared)
+	d, err := stOf(r).SetShareMode(id, in.Mode)
 	if err != nil {
 		writeErr(w, r, http.StatusNotFound, err.Error())
 		return
 	}
-	resp := map[string]any{"shared": d.Shared}
-	if d.Shared {
+	resp := map[string]any{"mode": d.ShareMode}
+	if d.ShareMode != store.ShareOff {
 		resp["url"] = s.shareURL(userOf(r), id)
 	}
 	writeJSON(w, http.StatusOK, resp)

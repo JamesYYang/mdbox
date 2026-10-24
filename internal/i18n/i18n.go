@@ -28,6 +28,7 @@ const (
 	KeyRegisterClosed    Key = "auth.register_closed"
 	KeyRegisterLimited   Key = "auth.register_limited"
 	KeyShareGone         Key = "share.gone"
+	KeyBadShareMode      Key = "share.bad_mode"
 	KeyUserNameInvalid   Key = "user.name_invalid"
 	KeyUserPasswordWeak  Key = "user.password_weak"
 	KeyUserExists        Key = "user.exists"
@@ -50,6 +51,7 @@ var catalog = map[Lang]map[Key]string{
 		KeyRegisterClosed:    "Registration is closed",
 		KeyRegisterLimited:   "Too many attempts, please try again later",
 		KeyShareGone:         "This share link is invalid or has expired",
+		KeyBadShareMode:      "Unknown share mode",
 		KeyUserNameInvalid:   "Username may contain only lowercase letters, digits, underscores and hyphens, 3-32 characters",
 		KeyUserPasswordWeak:  "Password must be 8-72 characters",
 		KeyUserExists:        "Username is already taken",
@@ -70,6 +72,7 @@ var catalog = map[Lang]map[Key]string{
 		KeyRegisterClosed:    "注册已关闭",
 		KeyRegisterLimited:   "注册过于频繁，请稍后再试",
 		KeyShareGone:         "分享不存在或已失效",
+		KeyBadShareMode:      "未知的分享模式",
 		KeyUserNameInvalid:   "用户名只能包含小写字母、数字、下划线和连字符，长度 3-32",
 		KeyUserPasswordWeak:  "密码长度需要在 8-72 个字符之间",
 		KeyUserExists:        "用户名已被占用",

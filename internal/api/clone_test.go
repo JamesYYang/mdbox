@@ -47,7 +47,7 @@ func TestCloneSharedDocCreatesCopyInCallerLibrary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建源文档失败: %v", err)
 	}
-	if _, err := aliceStore.SetShared(src.ID, true); err != nil {
+	if _, err := aliceStore.SetShareMode(src.ID, store.ShareView); err != nil {
 		t.Fatalf("开启分享失败: %v", err)
 	}
 	srcDisk, err := aliceStore.Get(src.ID) // 从磁盘读回，正文含末尾换行，便于精确比较
@@ -115,7 +115,7 @@ func TestCloneSharedDocUnauthorized(t *testing.T) {
 	reg.Register("alice", "password123")
 	aliceStore, _ := reg.Store("alice")
 	src, _ := aliceStore.Create(store.CreateInput{Title: "T", Content: "b", Source: "web"})
-	aliceStore.SetShared(src.ID, true)
+	aliceStore.SetShareMode(src.ID, store.ShareView)
 	sig := (&Server{cfg: cfg}).shareSig("alice", src.ID)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/clone/alice/"+src.ID+"/"+sig, nil)
@@ -151,7 +151,7 @@ func TestCloneBadSignatureNotFound(t *testing.T) {
 	bob, _ := reg.Register("bob", "password123")
 	aliceStore, _ := reg.Store("alice")
 	src, _ := aliceStore.Create(store.CreateInput{Title: "T", Content: "b", Source: "web"})
-	aliceStore.SetShared(src.ID, true)
+	aliceStore.SetShareMode(src.ID, store.ShareView)
 
 	// bob 已登录，但签名伪造 → 应 404（端点的安全边界）
 	req := httptest.NewRequest(http.MethodPost, "/api/clone/alice/"+src.ID+"/forged-signature", nil)

@@ -33,6 +33,18 @@ const (
 	MaxUserBytes = 200 << 20 // 单用户总量上限 200 MiB（含归档）
 )
 
+// 分享模式三态。Shared 是它的派生视图（ShareMode != ShareOff）。
+const (
+	ShareOff  = "off"
+	ShareView = "view"
+	ShareEdit = "edit"
+)
+
+// ValidShareMode 判断 mode 是否属于三态取值域。
+func ValidShareMode(mode string) bool {
+	return mode == ShareOff || mode == ShareView || mode == ShareEdit
+}
+
 var (
 	ErrNotFound = errors.New(string(i18n.KeyDocNotFound))
 	// ErrNotText 表示正文不是合法 UTF-8 文本（含 NUL 字节），典型来源是把二进制改名成 .md。
@@ -41,21 +53,24 @@ var (
 	ErrDocTooLarge = errors.New(string(i18n.KeyDocTooLarge))
 	// ErrQuotaExceeded 表示该用户已用总量加本次写入会超过 MaxUserBytes。
 	ErrQuotaExceeded = errors.New(string(i18n.KeyQuotaExceeded))
+	// ErrBadShareMode 表示传入的分享模式不在取值域内。
+	ErrBadShareMode = errors.New(string(i18n.KeyBadShareMode))
 )
 
 // Doc 是一篇文档的元数据（Content 仅在单篇读取时填充）。
 type Doc struct {
-	ID       string    `json:"id"`
-	Title    string    `json:"title"`
-	Tags     []string  `json:"tags"`
-	Category string    `json:"category"`
-	Source   string    `json:"source"`
-	Status   string    `json:"status"` // active | archived
-	Shared   bool      `json:"shared"` // 是否开启匿名分享
-	Created  time.Time `json:"created"`
-	Updated  time.Time `json:"updated"`
-	Size     int       `json:"size"`
-	Content  string    `json:"content,omitempty"`
+	ID        string    `json:"id"`
+	Title     string    `json:"title"`
+	Tags      []string  `json:"tags"`
+	Category  string    `json:"category"`
+	Source    string    `json:"source"`
+	Status    string    `json:"status"`     // active | archived
+	ShareMode string    `json:"share_mode"` // off | view | edit，唯一真相
+	Shared    bool      `json:"shared"`     // 派生：ShareMode != ShareOff
+	Created   time.Time `json:"created"`
+	Updated   time.Time `json:"updated"`
+	Size      int       `json:"size"`
+	Content   string    `json:"content,omitempty"`
 }
 
 // frontmatter 是文件头部的 YAML 结构。
@@ -65,7 +80,8 @@ type frontmatter struct {
 	Category string   `yaml:"category"`
 	Source   string   `yaml:"source"`
 	Status   string   `yaml:"status"`
-	Shared   bool     `yaml:"shared,omitempty"`
+	Share    string   `yaml:"share,omitempty"`  // view | edit
+	Shared   bool     `yaml:"shared,omitempty"` // 旧的只读开关，仅用于兼容读取
 	Created  string   `yaml:"created"`
 	Updated  string   `yaml:"updated"`
 }
@@ -139,18 +155,26 @@ func loadFile(path string, bucket string) (*entry, error) {
 	if bucket == "archive" {
 		status = "archived"
 	}
+	mode := m.Share
+	if mode == "" && m.Shared {
+		mode = ShareView // 旧文件只有 shared: true
+	}
+	if !ValidShareMode(mode) {
+		mode = ShareOff
+	}
 	e := &entry{
 		Doc: Doc{
-			ID:       id,
-			Title:    m.Title,
-			Tags:     m.Tags,
-			Category: m.Category,
-			Source:   m.Source,
-			Status:   status,
-			Shared:   m.Shared,
-			Created:  parseTime(m.Created, fi),
-			Updated:  parseTime(m.Updated, fi),
-			Size:     len(body),
+			ID:        id,
+			Title:     m.Title,
+			Tags:      m.Tags,
+			Category:  m.Category,
+			Source:    m.Source,
+			Status:    status,
+			ShareMode: mode,
+			Shared:    mode != ShareOff,
+			Created:   parseTime(m.Created, fi),
+			Updated:   parseTime(m.Updated, fi),
+			Size:      len(body),
 		},
 		path: path,
 	}
@@ -177,6 +201,14 @@ func parseTime(v string, fi os.FileInfo) time.Time {
 	return time.Now()
 }
 
+// shareField 把模式转成 frontmatter 的取值；off 写空串，靠 omitempty 省略整行。
+func shareField(mode string) string {
+	if mode == ShareOff || mode == "" {
+		return ""
+	}
+	return mode
+}
+
 // serialize 把文档序列化为带 frontmatter 的 Markdown 文本。
 func serialize(d *Doc, content string) string {
 	m := frontmatter{
@@ -185,7 +217,7 @@ func serialize(d *Doc, content string) string {
 		Category: d.Category,
 		Source:   d.Source,
 		Status:   d.Status,
-		Shared:   d.Shared,
+		Share:    shareField(d.ShareMode),
 		Created:  d.Created.Format(time.RFC3339),
 		Updated:  d.Updated.Format(time.RFC3339),
 	}
@@ -248,16 +280,17 @@ func (s *Store) Create(in CreateInput) (*Doc, error) {
 	id := newID()
 	now := time.Now()
 	d := &Doc{
-		ID:       id,
-		Title:    orDefault(in.Title, "Untitled"),
-		Tags:     in.Tags,
-		Category: in.Category,
-		Source:   orDefault(in.Source, "manual"),
-		Status:   "active",
-		Created:  now,
-		Updated:  now,
-		Size:     len(in.Content),
-		Content:  in.Content,
+		ID:        id,
+		Title:     orDefault(in.Title, "Untitled"),
+		Tags:      in.Tags,
+		Category:  in.Category,
+		Source:    orDefault(in.Source, "manual"),
+		Status:    "active",
+		ShareMode: ShareOff,
+		Created:   now,
+		Updated:   now,
+		Size:      len(in.Content),
+		Content:   in.Content,
 	}
 	if d.Tags == nil {
 		d.Tags = []string{}
@@ -367,8 +400,11 @@ func (s *Store) Archive(id string) (*Doc, error) {
 	return &out, nil
 }
 
-// SetShared 开启或关闭文档的匿名分享。
-func (s *Store) SetShared(id string, shared bool) (*Doc, error) {
+// SetShareMode 设置文档的分享模式（off / view / edit）。
+func (s *Store) SetShareMode(id, mode string) (*Doc, error) {
+	if !ValidShareMode(mode) {
+		return nil, ErrBadShareMode
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -376,7 +412,8 @@ func (s *Store) SetShared(id string, shared bool) (*Doc, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	e.Shared = shared
+	e.ShareMode = mode
+	e.Shared = mode != ShareOff
 	e.Updated = time.Now()
 	content := readBody(e.path)
 	if err := os.WriteFile(e.path, []byte(serialize(&e.Doc, content)), 0o644); err != nil {
