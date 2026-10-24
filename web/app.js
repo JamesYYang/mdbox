@@ -796,16 +796,27 @@
 
   /* ---------- 分享 ---------- */
 
+  var SHARE_HINTS = {
+    off: 'sharemodal.hint_off',
+    view: 'sharemodal.hint_view',
+    edit: 'sharemodal.hint_edit'
+  };
+
   function openShare() {
     if (!state.current) { return; }
-    var shared = !!state.current.shared;
-    $('share-toggle').checked = shared;
-    updateShareLink(shared);
+    $('share-mode').value = state.current.share_mode || 'off';
+    updateShareModeHint();
+    updateShareLink($('share-mode').value);
     openModal('modal-share');
   }
 
-  function updateShareLink(shared) {
-    if (shared && state.current && state.current.shareUrl) {
+  function updateShareModeHint() {
+    var m = $('share-mode').value;
+    $('share-mode-hint').textContent = I18N.t(SHARE_HINTS[m] || SHARE_HINTS.off);
+  }
+
+  function updateShareLink(mode) {
+    if (mode !== 'off' && state.current && state.current.shareUrl) {
       $('share-link').value = location.origin + state.current.shareUrl;
       $('share-link-wrap').hidden = false;
     } else {
@@ -813,22 +824,26 @@
     }
   }
 
-  function onToggleShare() {
+  function onChangeShareMode() {
     if (!state.current) { return; }
-    var on = $('share-toggle').checked;
+    var mode = $('share-mode').value;
+    var prev = state.current.share_mode || 'off';
+    updateShareModeHint();
     api('/api/docs/' + state.current.id + '/share', {
       method: 'POST',
-      body: JSON.stringify({ shared: on }),
+      body: JSON.stringify({ mode: mode }),
       headers: { 'Content-Type': 'application/json' }
     }).then(function (resp) {
-      state.current.shared = resp.shared;
+      state.current.share_mode = resp.mode;
+      state.current.shared = resp.mode !== 'off';
       state.current.shareUrl = resp.url || '';
-      $('p-share').classList.toggle('primary', resp.shared);
+      $('p-share').classList.toggle('primary', resp.mode !== 'off');
       renderDocMeta(state.current);
-      updateShareLink(resp.shared);
+      updateShareLink(resp.mode);
       loadList();
     }).catch(function (e) {
-      $('share-toggle').checked = !on;
+      $('share-mode').value = prev;
+      updateShareModeHint();
       uiAlert(I18N.t('error.op_failed', { msg: e.message }), { title: I18N.t('error.op_failed_title') });
     });
   }
@@ -1024,7 +1039,7 @@
     $('e-cancel').addEventListener('click', cancelEdit);
     $('e-save').addEventListener('click', saveDoc);
     $('e-archive').addEventListener('click', archiveDoc);
-    $('share-toggle').addEventListener('change', onToggleShare);
+    $('share-mode').addEventListener('change', onChangeShareMode);
 
     ['e-title', 'e-category', 'e-tags'].forEach(function (id) {
       $(id).addEventListener('input', function () { state.dirty = true; });

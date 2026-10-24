@@ -126,7 +126,13 @@
       'pwd.failed': '修改失败',
 
       'sharemodal.title': '分享文档',
-      'sharemodal.toggle': '开启分享：任何人凭链接可只读查看，无需登录，且无法编辑',
+      'sharemodal.label': '分享方式',
+      'sharemodal.mode_off': '关闭分享',
+      'sharemodal.mode_view': '只读链接（无需登录）',
+      'sharemodal.mode_edit': '可编辑链接（需登录）',
+      'sharemodal.hint_off': '关闭后链接立即失效。',
+      'sharemodal.hint_view': '任何人凭链接可只读查看，无需登录，无法编辑。',
+      'sharemodal.hint_edit': '链接不变；任何登录用户凭链接可在分享页直接编辑，保存即改写本文档。无版本历史。',
       'sharemodal.link_label': '分享链接（固定地址，可随时关闭）',
 
       'error.need_login': '需要登录',
@@ -262,7 +268,13 @@
       'pwd.failed': 'Change failed',
 
       'sharemodal.title': 'Share document',
-      'sharemodal.toggle': 'Enable sharing: anyone with the link can view read-only, no sign-in, and cannot edit',
+      'sharemodal.label': 'Sharing',
+      'sharemodal.mode_off': 'Off',
+      'sharemodal.mode_view': 'Read-only link (no login)',
+      'sharemodal.mode_edit': 'Editable link (login required)',
+      'sharemodal.hint_off': 'The link stops working immediately.',
+      'sharemodal.hint_view': 'Anyone with the link can read, without logging in. No editing.',
+      'sharemodal.hint_edit': 'Same link; any logged-in user can edit in place and save over this document. No version history.',
       'sharemodal.link_label': 'Share link (stable URL, can be turned off anytime)',
 
       'error.need_login': 'Sign-in required',

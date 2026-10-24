@@ -239,9 +239,14 @@
     <div class="modal-head"><span data-i18n="sharemodal.title">分享文档</span><button class="modal-close" data-close="modal-share">×</button></div>
     <div class="modal-body">
       <label class="switch-row">
-        <input type="checkbox" id="share-toggle">
-        <span data-i18n="sharemodal.toggle">开启分享：任何人凭链接可只读查看，无需登录，且无法编辑</span>
+        <span data-i18n="sharemodal.label">分享方式</span>
+        <select id="share-mode" class="share-mode">
+          <option value="off" data-i18n="sharemodal.mode_off">关闭分享</option>
+          <option value="view" data-i18n="sharemodal.mode_view">只读链接（无需登录）</option>
+          <option value="edit" data-i18n="sharemodal.mode_edit">可编辑链接（需登录）</option>
+        </select>
       </label>
+      <p id="share-mode-hint" class="msg"></p>
       <div id="share-link-wrap" hidden>
         <div class="code-label" data-i18n="sharemodal.link_label">分享链接（固定地址，可随时关闭）</div>
         <div class="share-copy">
