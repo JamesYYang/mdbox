@@ -110,3 +110,45 @@ func (s *Server) cloneShared(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{"doc": d})
 }
+
+// editableDoc 校验签名与「可编辑」状态，并返回源文档与**作者**的 store。
+// 与 sharedDoc 的区别：要求 share_mode == edit，且必须由调用方自己写盘。
+func (s *Server) editableDoc(r *http.Request) (*store.Doc, *store.Store, bool) {
+	user, id := r.PathValue("user"), r.PathValue("id")
+	if !s.validSig(user, id, r.PathValue("token")) {
+		return nil, nil, false
+	}
+	st, err := s.reg.Store(user)
+	if err != nil {
+		return nil, nil, false
+	}
+	d, err := st.Get(id)
+	if err != nil || d.ShareMode != store.ShareEdit {
+		return nil, nil, false
+	}
+	return d, st, true
+}
+
+// editShared 让已登录用户凭可编辑分享链接改写源文档正文。
+// 标题、标签、分类、来源一律不动；分享签名与正文无关，保存后链接不变。
+func (s *Server) editShared(w http.ResponseWriter, r *http.Request) {
+	src, st, ok := s.editableDoc(r)
+	if !ok {
+		writeErr(w, r, http.StatusNotFound, string(i18n.KeyShareGone))
+		return
+	}
+	var in struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeBadReq(w, r, i18n.KeyBadJSON, err)
+		return
+	}
+	d, err := st.Update(src.ID, store.UpdateInput{Content: &in.Content})
+	if err != nil {
+		writeErr(w, r, storeErrStatus(err), err.Error())
+		return
+	}
+	html, _ := render.Markdown(in.Content)
+	writeJSON(w, http.StatusOK, map[string]any{"doc": d, "html": html})
+}

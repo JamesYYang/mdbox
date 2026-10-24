@@ -67,6 +67,7 @@ func New(reg *users.Registry, cfg *config.Config, sessions *auth.Sessions) http.
 	mux.HandleFunc("GET /api/docs/{id}/download", s.downloadDoc)
 	mux.HandleFunc("GET /api/share/{user}/{id}/{token}", s.publicDoc)
 	mux.HandleFunc("GET /api/share/{user}/{id}/{token}/download", s.publicDownload)
+	mux.HandleFunc("PUT /api/share/{user}/{id}/{token}", s.editShared)
 	mux.HandleFunc("POST /api/clone/{user}/{id}/{token}", s.cloneShared)
 	mux.HandleFunc("GET /api/tags", s.tags)
 	mux.HandleFunc("GET /api/categories", s.categories)
@@ -75,13 +76,14 @@ func New(reg *users.Registry, cfg *config.Config, sessions *auth.Sessions) http.
 	return s.withAuth(mux)
 }
 
-// publicPath 判断某路径是否无需登录：登录/注册/登出接口、公开分享读取。
-func publicPath(p string) bool {
-	switch p {
+// publicPath 判断某请求是否无需登录：登录/注册/登出接口，以及分享的只读 GET。
+// 必须按方法判断——否则 /api/share/ 下的写端点会被当成匿名接口。
+func publicPath(r *http.Request) bool {
+	switch r.URL.Path {
 	case "/api/login", "/api/register", "/api/logout":
 		return true
 	}
-	return strings.HasPrefix(p, "/api/share/")
+	return r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api/share/")
 }
 
 // Bearer 取出请求里的 token（Authorization 头优先，其次 ?token=）。
@@ -112,7 +114,7 @@ func (s *Server) withAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), ctxLang, i18n.FromAcceptLanguage(r.Header.Get("Accept-Language")))
 		r = r.WithContext(ctx)
-		if publicPath(r.URL.Path) {
+		if publicPath(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
