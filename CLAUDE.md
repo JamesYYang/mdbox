@@ -84,6 +84,6 @@ PDF export (`exportPdf()` in `app.js`) uses html2pdf, a canvas slicer rather tha
 ## Conventions
 
 - Code comments, commit messages (conventional-commit prefixes like `docs:`/`chore:`), and user-facing strings are in Chinese; match this when editing.
-- Product scope is deliberately narrow — see `docs/PRD.md` §2.3 "明确非目标" before adding features (no owned embeddings, no built-in chat UI, no DB, no WYSIWYG, no roles/permissions or cross-user sharing). Favor "agent writes in via MCP" over manual upload flows.
+- Product scope is deliberately narrow — see `docs/PRD.md` §2.3 "明确非目标" before adding features (no owned embeddings, no built-in chat UI, no DB, no WYSIWYG, no roles/permissions, no multi-person co-editing — cross-user writes happen only through edit links the author explicitly issues). Favor "agent writes in via MCP" over manual upload flows.
 - `README.md` documents the REST API table and MCP config; update it (and `docs/PRD.md` when behavior changes) alongside API changes.
 - `CODEBUDDY.md` is the equivalent guide for CodeBuddy Code; keep the two in sync if you change shared facts.

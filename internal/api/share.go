@@ -113,6 +113,8 @@ func (s *Server) cloneShared(w http.ResponseWriter, r *http.Request) {
 
 // editableDoc 校验签名与「可编辑」状态，并返回源文档与**作者**的 store。
 // 与 sharedDoc 的区别：要求 share_mode == edit，且必须由调用方自己写盘。
+// 已知窄竞态（接受，不改结构）：模式在这里判定，st.Update 在 store 自己的锁里写盘，
+// 作者在这两步之间把分享改成 off 时这次写入仍会落盘。要强一致得把模式判定下推进 store 锁内。
 func (s *Server) editableDoc(r *http.Request) (*store.Doc, *store.Store, bool) {
 	user, id := r.PathValue("user"), r.PathValue("id")
 	if !s.validSig(user, id, r.PathValue("token")) {

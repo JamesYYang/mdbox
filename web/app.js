@@ -1174,9 +1174,10 @@
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
       .then(function (res) {
         if (!res.ok || res.data.error) {
-          exitShareEdit(); // 链接失效/关闭编辑：别把残留编辑器留在页面上
           content.innerHTML = '<p>' + I18N.t('share.gone') + '</p>';
           clearToc($('share-toc'));
+          if (shareCtx.draft != null) { keepShareDraft(); return; }
+          exitShareEdit(); // 链接失效/关闭编辑：别把残留编辑器留在页面上
           return;
         }
         var doc = res.data.doc || {};
@@ -1193,10 +1194,19 @@
         }
       })
       .catch(function () {
-        exitShareEdit();
         content.innerHTML = '<p>' + I18N.t('share.load_failed') + '</p>';
         clearToc($('share-toc'));
+        if (shareCtx.draft != null) { keepShareDraft(); return; }
+        exitShareEdit();
       });
+  }
+
+  // 登录往返后重取分享失败（网络抖动 / 作者刚好关了分享）：草稿是用户唯一的一份内容，
+  // 不能走 exitShareEdit 静默清掉，改为留在编辑态让用户自己复制。
+  function keepShareDraft() {
+    shareCtx.mode = 'edit';
+    enterShareEdit();
+    msg('share-msg', I18N.t('share.draft_kept'));
   }
 
   // 按分享模式刷新顶栏：可编辑时显示「编辑」按钮并改文案。
@@ -1306,6 +1316,13 @@
       var m = $('share-download-menu');
       if (m && !m.hidden) { m.hidden = true; }
     });
+    // 与文档编辑器一致：编辑中刷新/关标签页会悄无声息地丢掉正文，先问一句。
+    window.addEventListener('beforeunload', function (e) {
+      if (shareCtx && shareCtx.editing && $('share-source').value !== shareCtx.content) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
   }
 
   function shareDownloadMd() {
@@ -1322,7 +1339,9 @@
   }
 
   function shareDownloadPdf() {
-    exportPdf($('share-content'), shareCtx ? shareCtx.title : 'doc').catch(function (e) {
+    // 编辑态 #share-content 是 hidden 的，html2canvas 抓不可见元素只会得到空白，改导预览。
+    var src = shareCtx && shareCtx.editing ? $('share-preview') : $('share-content');
+    exportPdf(src, shareCtx ? shareCtx.title : 'doc').catch(function (e) {
       uiAlert(e.message || I18N.t('pdf.export_failed'), { title: I18N.t('pdf.export_failed_title') });
     });
   }

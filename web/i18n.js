@@ -31,13 +31,14 @@
       'share.download_failed': '下载失败',
       'share.clone': '复制到我的库',
       'share.clone_failed': '复制失败',
-      'share.brand_tip_edit': '可共同编辑',
+      'share.brand_tip_edit': '可编辑分享',
       'share.edit': '编辑',
       'share.save': '保存',
       'share.cancel': '取消',
       'share.save_ok': '已保存',
       'share.save_failed': '保存失败',
       'share.gone_on_save': '分享已失效或已关闭编辑，内容未保存。',
+      'share.draft_kept': '分享已失效或无法加载，你的内容仍保留在编辑器里，请复制保存',
       'share.edit_hint': '保存后对方立即看到，无版本历史',
       'share.preview_need_login': '登录后才有实时预览',
 
@@ -189,6 +190,7 @@
       'share.save_ok': 'Saved',
       'share.save_failed': 'Save failed',
       'share.gone_on_save': 'This share link is invalid or editing was turned off. Nothing was saved.',
+      'share.draft_kept': 'This share link no longer works, but your draft is kept in the editor — copy it before leaving',
       'share.edit_hint': 'Changes are visible immediately. No version history.',
       'share.preview_need_login': 'Log in to see the live preview',
 

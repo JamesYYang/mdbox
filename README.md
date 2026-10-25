@@ -165,7 +165,7 @@ scripts/git-backup.sh  scheduled git backup of the data directory
 
 - The metadata index is fully rebuilt from disk at startup; **if you add or remove files in the data directory externally, the service rebuilds on the next request.** Fine up to roughly 10k documents.
 - Login sessions live in memory; a restart signs everyone out — run it as a **single instance**.
-- Multi-user stops at "document isolation": no roles/permissions, no cross-user sharing, no password-recovery flow (changing a password requires the old one; a forgotten password must be handled by hand).
+- Multi-user stops at "document isolation": no roles/permissions, no multi-person co-editing (cross-user writes happen only through edit links the author explicitly issues), no password-recovery flow (changing a password requires the old one; a forgotten password must be handled by hand).
 - Preview rendering permits inline HTML (`WithUnsafe`), but the output goes through a whitelist sanitizer (bluemonday UGC): `<script>`, inline event handlers, `<iframe>` and `javascript:` links are stripped, while safe HTML such as `<details>`, `<br>` and tables is kept.
 - Archiving is a soft delete; **deleting is permanent** and cannot be undone.
 - Writes are bounded: the body must be UTF-8 text (a binary renamed to `.md` is rejected with 415), max 2 MB per document, 200 MB per user (archived files included) and 32 MB per request. The thresholds are constants in `internal/store/store.go`.
