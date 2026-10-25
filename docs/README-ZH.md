@@ -60,10 +60,10 @@ allow_register: true              # false 则关闭自助注册
 在文档预览模式点「分享」即可开启。链接形如：
 
 ```
-https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>")[:24]
+https://<host>/s/<user>/<id>/<token>    # token = HMAC-SHA256(secret, "<user>/<id>")[:24]
 ```
 
-`sig` 由 `secret` 用固定算法生成，所以同一篇文档每次都是**同一个地址**；更改 `secret` 会让所有已分享链接立即失效，关闭分享则该链接返回 404。分享页只读，不能编辑。
+链接末段（`token`）由 `secret` 用固定算法生成，所以同一篇文档每次都是**同一个地址**；更改 `secret` 会让所有已分享链接立即失效，关闭分享则该链接返回 404。文档可以分享为**只读**（`view`）或**可编辑**（`edit`）：可编辑链接允许已登录的访问者就地改写正文，标题、标签、分类不变。
 
 已登录的访问者可以点「复制到我的库」，把文档复制一份到自己的库里（只带标题 + 正文，`source=clone`），源文档不受影响。这是**单向拷贝**，不是多人共编。
 
@@ -113,11 +113,11 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | PUT | `/api/docs/{id}` | 更新 `{title?, content?, tags?, category?}` |
 | POST | `/api/docs/{id}/archive` | 归档（移入 archive，软删除） |
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
-| POST | `/api/docs/{id}/share` | `{shared:bool}` 开启/关闭分享，返回固定链接 |
+| POST | `/api/docs/{id}/share` | `{mode}`（`off` / `view` / `edit`）设置分享，返回 `{mode, url}`（`off` 时无 `url`） |
 | GET | `/api/docs/{id}/download` | 下载 .md |
-| GET | `/api/share/{user}/{id}/{sig}` | **匿名**只读读取（分享） |
-| GET | `/api/share/{user}/{id}/{sig}/download` | **匿名**下载 .md（分享） |
-| POST | `/api/clone/{user}/{id}/{sig}` | **需登录**：把已分享文档复制到自己的库（只带标题 + 正文，`source=clone`） |
+| GET | `/api/share/{user}/{id}/{token}` | **匿名**只读读取（分享） |
+| GET | `/api/share/{user}/{id}/{token}/download` | **匿名**下载 .md（分享） |
+| POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享文档复制到自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
 | POST | `/api/upload` | multipart 上传多个 .md（仅 UTF-8 文本，单篇 ≤2MB） |
 | POST | `/api/preview` | `{content}` → `{html}` |

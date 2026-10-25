@@ -60,10 +60,10 @@ Username rules: lowercase letters, digits, `_`, `-`, 3-32 characters; passwords 
 Click Share in a document's preview. A link looks like:
 
 ```
-https://<host>/s/<user>/<id>/<sig>      # sig = HMAC-SHA256(secret, "<user>/<id>")[:24]
+https://<host>/s/<user>/<id>/<token>    # token = HMAC-SHA256(secret, "<user>/<id>")[:24]
 ```
 
-`sig` is derived deterministically from `secret`, so the same document always has **the same URL**; changing `secret` invalidates every shared link at once, and turning sharing off makes the link return 404. The share page is read-only.
+The last path segment (`token`) is derived deterministically from `secret`, so the same document always has **the same URL**; changing `secret` invalidates every shared link at once, and turning sharing off makes the link return 404. A document can be shared **read-only** (`view`) or **editable** (`edit`): an editable link lets a signed-in visitor rewrite the body in place, while title, tags and category stay unchanged.
 
 A signed-in visitor can click **Copy to my library** to create an independent copy of a shared document in their own library (title + body only, `source=clone`); the original is untouched, and this is a one-way copy rather than collaborative editing.
 
@@ -113,11 +113,11 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | PUT | `/api/docs/{id}` | Update `{title?, content?, tags?, category?}` |
 | POST | `/api/docs/{id}/archive` | Archive (moves into archive; soft delete) |
 | DELETE | `/api/docs/{id}` | Permanently delete (cannot be undone) |
-| POST | `/api/docs/{id}/share` | `{shared:bool}` enable/disable sharing; returns the stable link |
+| POST | `/api/docs/{id}/share` | `{mode}` (`off` / `view` / `edit`) sets sharing; returns `{mode, url}` (`url` omitted for `off`) |
 | GET | `/api/docs/{id}/download` | Download the .md |
-| GET | `/api/share/{user}/{id}/{sig}` | **Anonymous** read-only access (share) |
-| GET | `/api/share/{user}/{id}/{sig}/download` | **Anonymous** .md download (share) |
-| POST | `/api/clone/{user}/{id}/{sig}` | **Signed-in** copy of a shared document into your own library (title + body only, `source=clone`) |
+| GET | `/api/share/{user}/{id}/{token}` | **Anonymous** read-only access (share) |
+| GET | `/api/share/{user}/{id}/{token}/download` | **Anonymous** .md download (share) |
+| POST | `/api/clone/{user}/{id}/{token}` | **Signed-in** copy of a shared document into your own library (title + body only, `source=clone`) |
 | GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
 | POST | `/api/upload` | Multipart upload of multiple .md files (UTF-8 text only, ≤2 MB each) |
 | POST | `/api/preview` | `{content}` → `{html}` |
