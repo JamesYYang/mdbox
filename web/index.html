@@ -195,7 +195,11 @@
           <button id="e-cancel" class="ghost" data-i18n="action.cancel">取消</button>
           <input id="e-title" class="title-input" placeholder="标题" data-i18n-placeholder="edit.title_placeholder">
           <input id="e-category" class="meta-input" placeholder="分类" data-i18n-placeholder="edit.category_placeholder">
-          <input id="e-tags" class="meta-input" placeholder="标签，逗号分隔" data-i18n-placeholder="edit.tags_placeholder">
+          <div id="e-tags-wrap" class="tag-input">
+            <span id="e-tags-chips" class="tag-chips"></span>
+            <input id="e-tags" class="tag-entry" placeholder="标签，回车或逗号分隔" data-i18n-placeholder="edit.tags_placeholder" autocomplete="off">
+            <div id="tag-suggest" class="tag-suggest" hidden></div>
+          </div>
           <span class="spacer"></span>
           <span id="e-msg" class="msg"></span>
           <button id="e-archive" class="ghost" data-i18n="action.archive">归档</button>

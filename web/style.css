@@ -218,6 +218,39 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 .title-input { flex: 1; min-width: 180px; font-size: 15px; font-weight: 600; }
 .meta-input { width: 160px; font-size: 13px; }
 
+/* 标签胶囊输入：已选标签是可删胶囊，输入框只承载「待加入」的那一个。 */
+.tag-input {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  width: 280px; max-width: 100%; min-height: 26px; padding: 1px 4px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface);
+}
+.tag-input:focus-within { border-color: var(--muted); }
+.tag-chips { display: contents; }
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 2px; padding: 1px 2px 1px 8px;
+  border-radius: 999px; background: var(--bg); font-size: 12px; line-height: 1.6;
+}
+.tag-chip button {
+  border: 0; background: none; padding: 0 3px; cursor: pointer;
+  color: var(--muted); font-size: 13px; line-height: 1;
+}
+.tag-chip button:hover { color: var(--danger); }
+.tag-entry {
+  flex: 1; min-width: 70px; border: 0; outline: 0; padding: 2px;
+  background: none; color: var(--text); font-size: 13px;
+}
+.tag-suggest {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  max-height: 200px; overflow: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
+}
+.tag-suggest button {
+  display: block; width: 100%; padding: 6px 10px; border: 0; background: none;
+  color: var(--text); font-size: 13px; text-align: left; cursor: pointer;
+}
+.tag-suggest button:hover { background: var(--bg); }
+
 /* 阅读区：正文居中；宽屏时右侧留出目录位（目录在媒体查询里才显示） */
 .pane-preview {
   flex: 1; overflow: auto; padding: 24px 32px; background: var(--surface);

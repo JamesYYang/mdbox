@@ -96,7 +96,8 @@
 
       'edit.title_placeholder': '标题',
       'edit.category_placeholder': '分类',
-      'edit.tags_placeholder': '标签，逗号分隔',
+      'edit.tags_placeholder': '标签，回车或逗号分隔',
+      'edit.tag_remove': '移除标签',
       'edit.source_placeholder': '在这里写 Markdown…',
 
       'doc.untitled': '未命名文档',
@@ -248,7 +249,8 @@
 
       'edit.title_placeholder': 'Title',
       'edit.category_placeholder': 'Category',
-      'edit.tags_placeholder': 'Tags, comma-separated',
+      'edit.tags_placeholder': 'Tags — Enter or comma',
+      'edit.tag_remove': 'Remove tag',
       'edit.source_placeholder': 'Write Markdown here…',
 
       'doc.untitled': 'Untitled',

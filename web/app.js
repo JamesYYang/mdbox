@@ -16,7 +16,9 @@
     overview: null,   // 列表页「近 7 天」概览；切语言时用它重渲染，不重复请求
     current: null,
     dirty: false,
-    pushed: false      // 当前文档页是否由我们 pushState 进来的（决定「返回」能否直接 history.back）
+    pushed: false,     // 当前文档页是否由我们 pushState 进来的（决定「返回」能否直接 history.back）
+    allTags: [],       // 库内已有标签，供胶囊输入做建议
+    editTags: []       // 编辑态当前已选标签
   };
   var previewTimer = null;
   var shareCtx = null; // { user, id, sig, title, mode, content, editing, draft }
@@ -143,8 +145,114 @@
     return d.getFullYear() + '-' + md;
   }
 
-  function splitTags(v) {
-    return (v || '').split(',').map(function (s) { return s.trim(); }).filter(function (s) { return s; });
+  /* ---------- 标签胶囊输入（可选可输） ---------- */
+  // 已选标签放在 state.editTags，#e-tags 只承载「还没加入」的那一个。
+  function renderTagChips() {
+    var box = $('e-tags-chips');
+    if (!box) { return; }
+    box.innerHTML = '';
+    state.editTags.forEach(function (t, i) {
+      var chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      var label = document.createElement('span');
+      label.textContent = t;
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '×';
+      del.title = I18N.t('edit.tag_remove');
+      del.addEventListener('click', function () { removeTag(i); });
+      chip.appendChild(label);
+      chip.appendChild(del);
+      box.appendChild(chip);
+    });
+  }
+
+  // 支持一次粘贴多个（逗号/顿号分隔）；重复标签按大小写不敏感去重。
+  function addTag(raw) {
+    var added = false;
+    (raw || '').split(/[,，]/).forEach(function (p) {
+      var t = p.replace(/\s+/g, ' ').trim();
+      if (!t) { return; }
+      var dup = state.editTags.some(function (x) { return x.toLowerCase() === t.toLowerCase(); });
+      if (!dup) { state.editTags.push(t); added = true; }
+    });
+    if (added) { state.dirty = true; }
+    $('e-tags').value = '';
+    hideTagSuggest();
+    renderTagChips();
+  }
+
+  // 把输入框里还没按回车的那一段也收进胶囊，保存前调用。
+  function commitPendingTag() {
+    addTag($('e-tags').value);
+  }
+
+  function removeTag(i) {
+    if (i < 0 || i >= state.editTags.length) { return; }
+    state.editTags.splice(i, 1);
+    state.dirty = true;
+    renderTagChips();
+  }
+
+  function hideTagSuggest() {
+    var box = $('tag-suggest');
+    if (box) { box.hidden = true; box.innerHTML = ''; }
+  }
+
+  // 建议只列库内已有标签，排除已选，最多 8 条。
+  function showTagSuggest() {
+    var box = $('tag-suggest');
+    if (!box) { return; }
+    var q = ($('e-tags').value || '').trim().toLowerCase();
+    var list = state.allTags.filter(function (t) {
+      if (state.editTags.indexOf(t) >= 0) { return false; }
+      return !q || t.toLowerCase().indexOf(q) >= 0;
+    }).slice(0, 8);
+    if (!list.length) { hideTagSuggest(); return; }
+    box.innerHTML = '';
+    list.forEach(function (t) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = t;
+      // 用 mousedown 而不是 click：click 之前输入框已经 blur，下拉先消失了
+      b.addEventListener('mousedown', function (e) { e.preventDefault(); addTag(t); });
+      box.appendChild(b);
+    });
+    box.hidden = false;
+  }
+
+  function bindTagInput() {
+    var input = $('e-tags');
+    if (!input) { return; }
+    input.addEventListener('input', function () { state.dirty = true; showTagSuggest(); });
+    input.addEventListener('focus', showTagSuggest);
+    input.addEventListener('blur', function () { setTimeout(hideTagSuggest, 120); });
+    input.addEventListener('keydown', function (e) {
+      if (e.isComposing) { return; } // 中文输入法组词时的回车不算提交
+      if (e.key === 'Enter' || e.key === ',' || e.key === '，') {
+        e.preventDefault();
+        var v = input.value.trim();
+        if (v) { addTag(v); return; }
+        // 输入框为空时回车 = 选中第一条建议
+        var first = $('tag-suggest').hidden ? null : $('tag-suggest').querySelector('button');
+        if (first) { addTag(first.textContent); } else { hideTagSuggest(); }
+        return;
+      }
+      if (e.key === 'Backspace' && !input.value) { removeTag(state.editTags.length - 1); return; }
+      if (e.key === 'Escape') { hideTagSuggest(); }
+    });
+    var wrap = $('e-tags-wrap');
+    if (wrap) {
+      wrap.addEventListener('click', function (e) {
+        if (e.target === wrap || e.target.id === 'e-tags-chips') { input.focus(); }
+      });
+    }
+  }
+
+  function loadAllTags() {
+    api('/api/tags')
+      .then(function (r) { state.allTags = r.tags || []; })
+      .catch(function () { state.allTags = []; });
   }
 
   function copyText(text, btn) {
@@ -206,6 +314,10 @@
     ['d-source', 'e-title', 'e-category', 'e-tags', 'search', 'share-link'].forEach(function (id) {
       if ($(id)) { $(id).value = ''; }
     });
+    state.allTags = [];
+    state.editTags = [];
+    if ($('e-tags-chips')) { $('e-tags-chips').innerHTML = ''; }
+    hideTagSuggest();
     ['p-title', 'doc-meta', 'p-msg', 'e-msg'].forEach(function (id) {
       if ($(id)) { $(id).textContent = ''; }
     });
@@ -663,7 +775,11 @@
     if (!state.current) { return; }
     $('e-title').value = state.current.title || '';
     $('e-category').value = state.current.category || '';
-    $('e-tags').value = (state.current.tags || []).join(', ');
+    state.editTags = (state.current.tags || []).slice();
+    $('e-tags').value = '';
+    renderTagChips();
+    hideTagSuggest();
+    loadAllTags();
     $('d-source').value = state.current.content || '';
     $('e-preview').innerHTML = $('d-preview').innerHTML;
     state.dirty = false;
@@ -684,10 +800,11 @@
   function saveDoc() {
     if (!state.current) { return Promise.resolve(); }
     var id = state.current.id;
+    commitPendingTag(); // 输入框里没按回车的那一段也要存
     var body = JSON.stringify({
       title: $('e-title').value,
       content: $('d-source').value,
-      tags: splitTags($('e-tags').value),
+      tags: state.editTags.slice(),
       category: $('e-category').value
     });
     msg('e-msg', I18N.t('doc.saving'));
@@ -1043,9 +1160,10 @@
     $('e-archive').addEventListener('click', archiveDoc);
     $('share-mode').addEventListener('change', onChangeShareMode);
 
-    ['e-title', 'e-category', 'e-tags'].forEach(function (id) {
+    ['e-title', 'e-category'].forEach(function (id) {
       $(id).addEventListener('input', function () { state.dirty = true; });
     });
+    bindTagInput();
 
     $('d-source').addEventListener('input', function () {
       state.dirty = true;
