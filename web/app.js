@@ -1180,7 +1180,10 @@
         buildToc(content, $('share-toc'), document.querySelector('.share-body'));
         updateShareChrome();
         refreshTitle();
-        if (shareCtx.draft != null) { enterShareEdit(); }
+        // 401 回来后草稿还在：链接仍可编辑就回填，已被降级成只读就复位 DOM（否则编辑器留在屏幕上）。
+        if (shareCtx.draft != null) {
+          if (shareCtx.mode === 'edit') { enterShareEdit(); } else { exitShareEdit(); }
+        }
       })
       .catch(function () {
         exitShareEdit();
