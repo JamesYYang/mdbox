@@ -17,7 +17,7 @@ Design principle: **a document is always a plain `.md` file with YAML frontmatte
   - **List overview**: a compact strip on the documents page shows the last 7 days — new / updated / archived / written by agents
   - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags and archive the document
   - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
-- **Sharing**: enable sharing per document to get a **stable, deterministically signed link**; anyone with the link can read it without signing in, and you can turn it off at any time. A signed-in visitor can use **Copy to my library** to take an independent copy into their own library
+- **Sharing**: enable sharing per document to get a **stable, deterministically signed link**, either **read-only** (anyone with the link, no sign-in) or **editable** (a signed-in visitor rewrites the body in place; title/tags/category stay unchanged). Turning it off makes the link 404 immediately. A signed-in visitor can also use **Copy to my library** to take an independent copy
 - **REST API**: login/registration, document CRUD, search, tag/category aggregation, 7-day overview, multipart upload, Markdown rendering, sharing and cloning
 - **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, over HTTP (Streamable) or stdio
 - **Auth**: the web app uses a login session (cookie); agents/scripts use a **per-user token**; either way, only that user's own documents are reachable
