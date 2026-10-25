@@ -138,17 +138,23 @@ func (s *Server) editShared(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Content string `json:"content"`
+		Content *string `json:"content"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeBadReq(w, r, i18n.KeyBadJSON, err)
 		return
 	}
-	d, err := st.Update(src.ID, store.UpdateInput{Content: &in.Content})
+	// 缺 content（如 {}）与显式 null 都视为参数错误：与 PUT /api/docs/{id} 一致，
+	// 不能让一次空请求把源文档正文清空。
+	if in.Content == nil {
+		writeErr(w, r, http.StatusBadRequest, string(i18n.KeyBadJSON))
+		return
+	}
+	d, err := st.Update(src.ID, store.UpdateInput{Content: in.Content})
 	if err != nil {
 		writeErr(w, r, storeErrStatus(err), err.Error())
 		return
 	}
-	html, _ := render.Markdown(in.Content)
+	html, _ := render.Markdown(*in.Content)
 	writeJSON(w, http.StatusOK, map[string]any{"doc": d, "html": html})
 }

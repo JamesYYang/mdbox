@@ -138,3 +138,43 @@ func TestEditSharedRevokedImmediately(t *testing.T) {
 		t.Fatalf("状态码 = %d, want 404", rec.Code)
 	}
 }
+
+// putShareRaw 用原始 JSON 作为请求体，用于构造缺字段 / null 之类的畸形请求。
+func putShareRaw(t *testing.T, h http.Handler, token, id, sig, raw string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPut, "/api/share/alice/"+id+"/"+sig, strings.NewReader(raw))
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+// TestEditSharedRejectsMissingContent 缺 content 字段（{}）不能当成空正文写盘，
+// 否则一次空请求就会把源文档清空。
+func TestEditSharedRejectsMissingContent(t *testing.T) {
+	reg, h, cfg := newTestServer(t)
+	id, sig, st := seedEditShared(t, reg, cfg)
+	before, err := st.Get(id)
+	if err != nil {
+		t.Fatalf("读取源文档失败: %v", err)
+	}
+	bob, err := reg.Register("bob", "password123")
+	if err != nil {
+		t.Fatalf("注册 bob 失败: %v", err)
+	}
+	rec := putShareRaw(t, h, bob.Token, id, sig, "{}")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("状态码 = %d, want 400; body=%s", rec.Code, rec.Body.String())
+	}
+	// Get 每次都从磁盘重读正文，守恒即说明文件没被改写。
+	after, err := st.Get(id)
+	if err != nil {
+		t.Fatalf("读取源文档失败: %v", err)
+	}
+	if strings.TrimSpace(after.Content) != strings.TrimSpace(before.Content) {
+		t.Errorf("正文被清空: %q -> %q", before.Content, after.Content)
+	}
+}
