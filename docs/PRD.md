@@ -81,6 +81,7 @@ mdbox 以**公开在线服务**形态提供：`www.mdbox.tech` 由作者托管�
 - ❌ 富文本所见即所得编辑器（保留 Markdown 源码的纯粹性）
 - ❌ **权限体系与跨用户协作**：多用户只做到「各用户文档隔离」；不做角色、协作权限、用户间共享文档（分享页的 clone 只是一次性拷贝，不是协作）、密码找回流程（修改密码需校验旧密码，见 V3-4）
   （*v0.1 为"不做账号体系"；v0.2 引入单管理员登录；v0.3 引入多用户自助注册，用 `users.yaml` 单文件管理，仍不引入数据库，权限分级与协作仍不做*）
+  v0.5 的 `edit` 分享是**整篇覆盖的单向写权限**，不构成协作：不做实时协同、版本历史 / 快照、冲突检测、编辑者审计与协作者白名单，也不开放匿名写。
 
 ---
 
@@ -197,13 +198,15 @@ tags: [标签1, 标签2]
 category: 分类
 source: agent | codebuddy | upload | web | clone
 status: active | archived
-shared: false          # 是否开启匿名分享（v0.2 新增）
+share: off             # 分享三态 off | view | edit（v0.5 由布尔 shared 升级）
 created: 2026-10-01T00:00:00+08:00
 updated: 2026-10-01T00:00:00+08:00
 ---
 ```
 
 `source` 字段用于后续统计"agent 产出了多少文档"，是产品化阶段的关键数据源。
+
+只写了 `shared: true` 的旧文件按 `view` 读取；写回一律只写 `share:`，不再写 `shared`（v0.5）。API 返回的 `Doc` JSON 中 `share_mode` 为三态值，`shared` 保留为派生值（`share_mode != off`），已发出的分享链接全部继续有效且只有读权限。
 
 ### 6.3 REST API
 
@@ -220,15 +223,18 @@ updated: 2026-10-01T00:00:00+08:00
 | PUT | `/api/docs/{id}` | 更新 |
 | POST | `/api/docs/{id}/archive` | 归档（软删除） |
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
-| POST | `/api/docs/{id}/share` | 开启/关闭分享，返回固定链接 |
+| POST | `/api/docs/{id}/share` | 设置分享模式，请求体 `{mode}`（`off` / `view` / `edit`），返回 `{mode, url}`（`off` 时无 `url`）；非法 `mode` 返回 400 |
 | POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享的文档复制一份到当前用户自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/docs/{id}/download` | 下载 .md |
 | GET | `/api/share/{user}/{id}/{sig}` · `/api/share/{user}/{id}/{sig}/download` | **匿名**只读读取 / 下载（分享） |
+| PUT | `/api/share/{user}/{id}/{sig}` | `{content}` → `{doc, html}`。**需登录**，仅 `share_mode=edit` 时可用；未登录 401，非 edit / 已关闭 / 签名错 404，超 2 MB 413，非 UTF-8 或含 NUL 415 |
 | GET | `/api/tags` · `/api/categories` | 聚合 |
 | POST | `/api/upload` | multipart 多文件上传 |
 | POST | `/api/preview` | Markdown → HTML |
 
-`/s/{user}/{id}/{sig}` 返回分享页 HTML（前端按路径进入只读分享模式）。
+`/s/{user}/{id}/{sig}` 返回分享页 HTML（前端按路径进入分享模式；`view` 只读，`edit` 多一个「编辑」按钮，就地进入双栏编辑，保存后回到只读视图）。
+
+匿名豁免只覆盖 **GET** + `/api/share/` 路径前缀：`PUT /api/share/...` 必须带登录会话或 token。
 
 ### 6.4 MCP 工具
 
@@ -360,5 +366,6 @@ updated: 2026-10-01T00:00:00+08:00
 | v0.4 | 2026-10-11 | **公开服务化（V4-1~V4-5）**：中英双语（默认按浏览器语言，顶栏 / 登录页 / 分享页可切换）、登录页品牌与宣传改版、移动端阅读适配、分享页 clone（V4-5，单向拷贝到自己的库）。产品定位由「自用工具」转为**公开在线服务**（`www.mdbox.tech` 开放注册，任何注册用户可用）；路线图 M0.5 由「自用验证期」改为「早期运营观察期」，成功指标由硬性数值改为待定的观察信号；风险补充运营方责任与可扩展性天花板 |
 | v0.4.1 | 2026-10-19 | 文档与实现对齐：新增 V4-5（分享页 clone）、旅程 F；非目标中的「不做改密码」修正为「不做密码找回」（V3-4 已交付改密）；§6.1 删除已不存在的「初始账号」；版本号同步为 0.4.1 |
 | v0.4.2 | 2026-10-19 | 列表页新增「近 7 天」产出概览（V4-6）：新增 / 更新 / 归档 / Agent 写入，全 0 隐藏；新增 `GET /api/overview`。口径：更新不重复计新增，归档取 `updated`，Agent 为 `source` 不属于 web/manual/upload/clone 的新增 |
+| v0.5 | 2026-10-24 | 分享三态 + 可编辑链接：`shared` 布尔改为 `share`（`off` / `view` / `edit`），`shared` 保留为派生值；`POST /api/docs/{id}/share` 改收 `{mode}`；新增需登录的 `PUT /api/share/{user}/{id}/{sig}`，仅 `edit` 可用，写入源作者 store 并复用 `store.Update`。这是对 v0.4「不做多人共编」结论的**有意修正**，边界限定为单篇整篇覆盖、无历史、无冲突检测、无审计、无白名单、无匿名写 |
 
 > 2026-10-19：原 P1（下一阶段）与 P2（探索期）功能规划已移除，后续功能方向待重新评估。

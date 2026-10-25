@@ -60,7 +60,11 @@ Multi-user, still no database. Both mechanisms resolve a request to a **username
 
 ### Sharing
 
-Per-document opt-in flag `shared` (frontmatter + `Doc.Shared`, toggled via `POST /api/docs/{id}/share`). A shared doc is readable anonymously at `GET /api/share/{user}/{id}/{sig}` and `/s/{user}/{id}/{sig}` (serves `index.html`; the SPA enters read-only share mode by pathname). `sig = HMAC-SHA256(secret, user+"/"+id)[:24]` is deterministic, so links are stable; changing `secret` invalidates every link, and unsharing makes it 404. A forged `user` fails the signature check.
+Per-document `share` has three states (`off | view | edit`); `Doc.Shared` is derived (`mode != off`). A shared doc is readable anonymously at `GET /api/share/{user}/{id}/{sig}` and `/s/{user}/{id}/{sig}` (serves `index.html`; the SPA enters read-only share mode by pathname). `sig = HMAC-SHA256(secret, user+"/"+id)[:24]` is deterministic, so links are stable; changing `secret` invalidates every link, and unsharing makes it 404. A forged `user` fails the signature check.
+
+In `edit` mode any **logged-in** user holding the link can rewrite the body in place via `PUT /api/share/{user}/{id}/{token}`, which targets the **owner's** store (`s.reg.Store(owner)`), not `stOf(r)`. `publicPath` must therefore stay method-aware: only `GET` under `/api/share/` is anonymous — a bare path-prefix check would silently expose the write endpoint. Writes reuse `store.Update`, so size/text/quota limits still apply. There is no version history, no conflict detection, no per-person attribution, and the write counts against the owner's quota.
+
+On the frontend the share dialog picks one of the three modes; in `edit` mode the share page shows an Edit button that switches in place to the two-pane editor (live preview) and returns to read-only after saving. Saving while logged out swaps in the login view and, after login, returns to the share page with the draft restored.
 
 ### Rendering & frontend
 
