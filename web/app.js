@@ -71,13 +71,13 @@
   // applyLang 在切换语言后重渲染当前视图；不触碰编辑态输入内容。
   function applyLang() {
     I18N.applyStatic();
-    if (shareCtx) { updateShareChrome(); }
     refreshTitle();
     updateLangBtn();
     if (!$('view-login').hidden) {
       if (refreshLoginMode) { refreshLoginMode(); }
       return;
     }
+    if (shareCtx) { updateShareChrome(); return; }
     if (state.user) {
       loadSidebar();
       if (state.mode === 'list') {
@@ -1138,7 +1138,8 @@
         $('login-pass').value = '';
         $('login-pass2').value = '';
         setMode(false);
-        enterApp(d.user);
+        if (location.pathname.indexOf('/s/') === 0) { resumeShare(d.user); }
+        else { enterApp(d.user); }
       }).catch(function (err) {
         $('login-msg').textContent = err.message || (registering ? I18N.t('auth.register_failed') : I18N.t('auth.login_failed'));
       });
@@ -1147,9 +1148,15 @@
 
   /* ---------- 分享模式（匿名只读） ---------- */
 
+  // 登录成功后回到分享页：重取文档，并把草稿填回编辑态。
+  function resumeShare(user) {
+    state.user = user;
+    renderUser(user);
+    setupShare();
+  }
+
   function setupShare() {
     showView('share');
-    bindShareEvents();
     var parts = location.pathname.split('/').filter(Boolean); // ['s', user, id, sig]
     var content = $('share-content');
     if (parts.length < 4) {
@@ -1345,7 +1352,12 @@
     initTheme();
     I18N.applyStatic();
     bindLangButton();
-    if (location.pathname.indexOf('/s/') === 0) { setupShare(); return; }
+    if (location.pathname.indexOf('/s/') === 0) {
+      bindShareEvents(); // 只绑一次：setupShare 会被 resumeShare 二次调用
+      bindLogin();
+      setupShare();
+      return;
+    }
     bindEvents();
     bindLogin();
     refreshTitle();
