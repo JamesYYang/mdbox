@@ -117,6 +117,7 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | GET | `/api/docs/{id}/download` | 下载 .md |
 | GET | `/api/share/{user}/{id}/{token}` | **匿名**只读读取（分享） |
 | GET | `/api/share/{user}/{id}/{token}/download` | **匿名**下载 .md（分享） |
+| PUT | `/api/share/{user}/{id}/{token}` | **需登录**：改写被分享文档的正文，仅 `share_mode=edit` 时可用；返回 `{doc, html}`。只改正文，标题/标签/分类不变，计入文档所有者的配额 |
 | POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享文档复制到自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
 | POST | `/api/upload` | multipart 上传多个 .md（仅 UTF-8 文本，单篇 ≤2MB） |

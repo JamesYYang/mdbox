@@ -117,6 +117,7 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | GET | `/api/docs/{id}/download` | Download the .md |
 | GET | `/api/share/{user}/{id}/{token}` | **Anonymous** read-only access (share) |
 | GET | `/api/share/{user}/{id}/{token}/download` | **Anonymous** .md download (share) |
+| PUT | `/api/share/{user}/{id}/{token}` | **Signed-in** rewrite of the shared document's body; only when `share_mode=edit`. Returns `{doc, html}`. Owner metadata and quota are unchanged/unaffected by the caller |
 | POST | `/api/clone/{user}/{id}/{token}` | **Signed-in** copy of a shared document into your own library (title + body only, `source=clone`) |
 | GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
 | POST | `/api/upload` | Multipart upload of multiple .md files (UTF-8 text only, ≤2 MB each) |
