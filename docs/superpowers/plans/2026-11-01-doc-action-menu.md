@@ -291,7 +291,7 @@ git commit -m "feat(api,mcp): 暴露 unarchive 接口与 unarchive_doc 工具"
 
 - [ ] **Step 3: 确认 key 完整且无重复**
 
-Run: `grep -c "'action.more_aria'\|'action.restore'\|'doc.restore_title'\|'doc.restore_confirm'\|'doc.restore_failed'" web/i18n.js`
+Run: `grep -c "'action.more_aria'\|'action.restore'\|'doc.archive_failed'\|'doc.restore_title'\|'doc.restore_confirm'\|'doc.restore_failed'" web/i18n.js`
 Expected: `10`（5 个 key × zh/en 各一次）
 
 - [ ] **Step 4: 提交**
