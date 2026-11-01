@@ -388,13 +388,25 @@ func (s *Store) Archive(id string) (*Doc, error) {
 		return nil, ErrNotFound
 	}
 	content := readBody(e.path)
-	e.Status = "archived"
-	e.Updated = time.Now()
 	dst := filepath.Join(s.root, "archive", id+".md")
-	if err := os.WriteFile(dst, []byte(serialize(&e.Doc, content)), 0o644); err != nil {
+	// 已经归档过：不写盘、不更新 updated，保持幂等。
+	if e.Status == "archived" && e.path == dst {
+		out := e.Doc
+		return &out, nil
+	}
+	// 先写盘成功再改内存索引，写失败时索引不会与磁盘脱节。
+	doc := e.Doc
+	doc.Status = "archived"
+	doc.Updated = time.Now()
+	if err := os.WriteFile(dst, []byte(serialize(&doc, content)), 0o644); err != nil {
 		return nil, err
 	}
-	_ = os.Remove(e.path)
+	// 源可能就是目标本身（文档已在 archive/），那种情况要就地重写，
+	// 删源会连刚写好的文件一起删掉。
+	if e.path != dst {
+		_ = os.Remove(e.path)
+	}
+	e.Doc = doc
 	e.path = dst
 	out := e.Doc
 	return &out, nil

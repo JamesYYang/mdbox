@@ -351,3 +351,37 @@ func TestUnarchiveMissingSourceFileErrors(t *testing.T) {
 		t.Errorf("docs/ 下不应被写出空文档: err = %v", err)
 	}
 }
+
+// TestArchiveIsIdempotentOnArchivedDoc 对已归档文档再归档一次（重复点归档、
+// agent 对旧 id 再调 archive_doc）时，目标 dst 就是源文件本身。旧实现「写完再删源」
+// 删掉的正是刚写好的文件，文档从磁盘上消失。归档必须幂等。
+func TestArchiveIsIdempotentOnArchivedDoc(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "旧稿", Content: "# 旧稿\n\n正文"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if _, err := st.Archive(d.ID); err != nil {
+		t.Fatalf("首次归档失败: %v", err)
+	}
+	again, err := st.Archive(d.ID)
+	if err != nil {
+		t.Fatalf("重复归档失败: %v", err)
+	}
+	if again.Status != "archived" {
+		t.Errorf("status = %q, want archived", again.Status)
+	}
+	if _, err := os.Stat(filepath.Join(st.root, "archive", d.ID+".md")); err != nil {
+		t.Fatalf("archive/ 下的文件被删掉了: %v", err)
+	}
+	full, err := st.Get(d.ID)
+	if err != nil {
+		t.Fatalf("重复归档后读取失败: %v", err)
+	}
+	if full.Status != "archived" {
+		t.Errorf("Get 返回 status = %q, want archived", full.Status)
+	}
+	if !strings.Contains(full.Content, "正文") {
+		t.Errorf("正文丢失: %q", full.Content)
+	}
+}
