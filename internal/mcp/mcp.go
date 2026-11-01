@@ -142,6 +142,20 @@ func New(st *store.Store, name, version string) *server.MCPServer {
 		return toolJSON(map[string]any{"id": id, "message": "Archived"})
 	})
 
+	s.AddTool(mcp.NewTool("unarchive_doc",
+		mcp.WithDescription("Move a document out of the archive back to active documents"),
+		mcp.WithString("id", mcp.Description("Document id"), mcp.Required()),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		id, err := req.RequireString("id")
+		if err != nil {
+			return toolErr(err)
+		}
+		if _, err := st.Unarchive(id); err != nil {
+			return toolErr(err)
+		}
+		return toolJSON(map[string]any{"id": id, "message": "Unarchived"})
+	})
+
 	return s
 }
 

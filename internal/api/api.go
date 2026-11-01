@@ -187,6 +187,15 @@ func (s *Server) archiveDoc(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"doc": d})
 }
 
+func (s *Server) unarchiveDoc(w http.ResponseWriter, r *http.Request) {
+	d, err := stOf(r).Unarchive(r.PathValue("id"))
+	if err != nil {
+		writeErr(w, r, http.StatusNotFound, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"doc": d})
+}
+
 func (s *Server) deleteDoc(w http.ResponseWriter, r *http.Request) {
 	if err := stOf(r).Delete(r.PathValue("id")); err != nil {
 		writeErr(w, r, http.StatusNotFound, err.Error())
