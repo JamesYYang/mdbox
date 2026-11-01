@@ -128,7 +128,7 @@ mdbox 以**公开在线服务**形态提供：`www.mdbox.tech` 由作者托管�
 | V2-3 | **只读预览为主** | 打开文档默认只读渲染，点「编辑」才进双栏模式，降低误编辑 |
 | V2-4 | **文档分享** | 每篇可手动开启，生成**固定算法**的稳定链接 `/s/<user>/<id>/<token>`（`token` 值 = `HMAC-SHA256(secret, user/id)[:24]`）；匿名免登录**只读**，可随时关闭撤销；改 `secret` 使全部链接失效 |
 | V2-5 | **导出** | 预览模式可下载 `.md`，或导出 PDF（浏览器端 html2pdf，**本地内置、不依赖 CDN**） |
-| V2-6 | **文档删除** | 列表卡片悬停显示删除按钮，二次确认后**彻底删除**（不可恢复，区别于归档的软删除） |
+| V2-6 | **文档删除** | 列表卡片与文档页统一用「⋯」菜单承载归档 / 删除；删除二次确认后**彻底删除**（不可恢复，区别于归档的软删除），归档可在「已归档文档」视图恢复 |
 | V2-7 | **自定义弹框** | 用自绘对话框替换浏览器原生 `confirm`/`alert`，统一视觉与交互 |
 | V2-8 | **令牌入配置** | （v0.2）agent 令牌从环境变量改为 `config.yaml` 的 `token`；**v0.3 已被 V3-2 取代**，不再使用共享令牌 |
 
@@ -225,6 +225,7 @@ updated: 2026-10-01T00:00:00+08:00
 | GET | `/api/docs/{id}` | 读取（含正文与渲染后 HTML；已分享时附 shareUrl） |
 | PUT | `/api/docs/{id}` | 更新 |
 | POST | `/api/docs/{id}/archive` | 归档（软删除） |
+| POST | `/api/docs/{id}/unarchive` | 恢复（从归档移回活动区） |
 | DELETE | `/api/docs/{id}` | 彻底删除（不可恢复） |
 | POST | `/api/docs/{id}/share` | 设置分享模式，请求体 `{mode}`（`off` / `view` / `edit`），返回 `{mode, url}`（`off` 时无 `url`）；非法 `mode` 返回 400 |
 | POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享的文档复制一份到当前用户自己的库（只带标题 + 正文，`source=clone`） |
@@ -241,7 +242,7 @@ updated: 2026-10-01T00:00:00+08:00
 
 ### 6.4 MCP 工具
 
-`list_docs` · `search_docs` · `read_doc` · `write_doc` · `update_doc` · `list_tags` · `archive_doc`
+`list_docs` · `search_docs` · `read_doc` · `write_doc` · `update_doc` · `list_tags` · `archive_doc` · `unarchive_doc`
 
 接入方式（HTTP，token 是你自己账号的，见 Web「MCP 接入」；每个 token 只能访问其所属用户的文档）：
 
@@ -297,6 +298,7 @@ updated: 2026-10-01T00:00:00+08:00
 | 用户 token 访问 `/api` 与 `/mcp` 均通过；无 token 或重置后的旧 token 401 | ✓ |
 | 分享：他人伪造 `<user>` 段签名校验失败 404；stdio 指定不存在的 `-user` 启动即失败 | ✓ |
 | 归档 / 删除：删除后文件从磁盘移除、列表数减一、再访问 404 | ✓ |
+| 归档可恢复：归档后从「已归档文档」恢复，回到活动列表且正文未丢 | ✓ |
 | 分享：开启得固定链接 → 匿名读 200 → 重复开启地址不变 → 关闭后 404 | ✓ |
 | 分享页顶部 Logo / 主题切换 / `.md`、PDF 下载 | ✓ |
 | 静态资源（`/`、`app.js`、`style.css`、`mdbox.png`、vendor）均 200 | ✓ |

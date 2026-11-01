@@ -19,7 +19,7 @@
   - **上传 / 下载**：拖拽或选择多个 `.md`；预览模式下可下载 Markdown 或**导出 PDF**
 - **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，分**只读**（任何人凭链接免登录查看）与**可编辑**（已登录的访问者在分享页就地改写正文，标题/标签/分类不变）两种；关闭后链接立刻 404。登录用户还可「复制到我的库」，把文档复制一份到自己库里
 - **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、近 7 天概览、multipart 上传、Markdown 渲染、分享与 clone
-- **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
+- **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc` `unarchive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
 - **鉴权**：Web 用登录会话（Cookie），agent/脚本用**每个用户各自的 token**，两者都只能访问该用户自己的文档
 - **git 自动备份**：数据目录本身是 git 仓库，定时提交并推送远端
 - **零前端依赖**：预览渲染在服务端（goldmark），不依赖任何 CDN；唯一打包的第三方 JS 是本地内置的 html2pdf（用于 PDF 导出）

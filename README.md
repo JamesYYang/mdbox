@@ -19,7 +19,7 @@ Design principle: **a document is always a plain `.md` file with YAML frontmatte
   - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
 - **Sharing**: enable sharing per document to get a **stable, deterministically signed link**, either **read-only** (anyone with the link, no sign-in) or **editable** (a signed-in visitor rewrites the body in place; title/tags/category stay unchanged). Turning it off makes the link 404 immediately. A signed-in visitor can also use **Copy to my library** to take an independent copy
 - **REST API**: login/registration, document CRUD, search, tag/category aggregation, 7-day overview, multipart upload, Markdown rendering, sharing and cloning
-- **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, over HTTP (Streamable) or stdio
+- **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, `unarchive_doc`, over HTTP (Streamable) or stdio
 - **Auth**: the web app uses a login session (cookie); agents/scripts use a **per-user token**; either way, only that user's own documents are reachable
 - **Automatic git backup**: the data directory is itself a git repository, committed and pushed on a schedule
 - **Zero frontend dependencies**: preview is rendered server-side (goldmark) with no CDN; the only bundled third-party JS is a local copy of html2pdf (for PDF export)
