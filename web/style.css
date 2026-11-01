@@ -295,6 +295,8 @@ input[type="search"], input[type="text"], input[type="password"], input:not([typ
 }
 .dropdown-menu button { border: none; text-align: left; background: transparent; }
 .dropdown-menu button:hover { background: var(--accent-soft); }
+.dropdown-menu button.menu-danger { color: var(--danger); }
+.dropdown-menu button.menu-danger:hover { background: var(--danger-soft, rgba(192, 57, 43, .1)); }
 
 /* ---------- 弹窗 ---------- */
 .modal {
@@ -475,7 +477,7 @@ button.danger:hover { filter: brightness(1.08); color: #fff; }
   /* —— 窄屏只读：隐藏一切编辑/新建/上传/删除入口 —— */
   /* 注意 .card-del 在基础区有一条 @media (hover:none) 规则把它设为常显，
      那条只改 opacity/pointer-events，不会覆盖这里的 display:none。 */
-  #btn-new, #btn-upload, #p-edit, #e-archive, .card-del { display: none; }
+  #btn-new, #btn-upload, #p-edit, .doc-more-wrap, .card-del { display: none; }
 
   /* —— 列表页 —— */
   #view-list { padding: 12px 14px; }

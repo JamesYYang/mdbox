@@ -755,6 +755,10 @@
       $('p-title').textContent = data.doc.title || data.doc.id;
       renderDocMeta(data.doc);
       $('p-share').classList.toggle('primary', !!data.doc.shared);
+      var isArchived = data.doc.status === 'archived';
+      $('doc-archive').hidden = isArchived;
+      $('doc-restore').hidden = !isArchived;
+      $('doc-menu').hidden = true;
       if (hashDocId() !== id) {
         history.pushState(null, '', '#/doc/' + encodeURIComponent(id));
         state.pushed = true;
@@ -813,6 +817,24 @@
       .catch(function (e) { msg('e-msg', e.message, true); });
   }
 
+  // 关闭所有「⋯」菜单。列表卡片菜单与文档页菜单共用，保证同时只开一个。
+  function closeMenus() {
+    var menus = document.querySelectorAll('.dropdown-menu');
+    Array.prototype.forEach.call(menus, function (m) { m.hidden = true; });
+    var wraps = document.querySelectorAll('.card-actions.open');
+    Array.prototype.forEach.call(wraps, function (w) { w.classList.remove('open'); });
+  }
+
+  // menuButton 生成一个菜单项，danger 为真时用红字（删除这类不可恢复的动作）。
+  function menuButton(key, onClick, danger) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = danger ? 'menu-danger' : '';
+    b.textContent = I18N.t(key);
+    b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    return b;
+  }
+
   // deleteDoc 彻底删除（不可恢复），与 archiveDoc 的软删除不同。
   function deleteDoc(id, title) {
     uiConfirm(I18N.t('doc.delete_confirm', { title: title }),
@@ -820,7 +842,7 @@
       .then(function (ok) {
         if (!ok) { return; }
         api('/api/docs/' + id, { method: 'DELETE' })
-          .then(function () { loadSidebar(); loadList(); })
+          .then(function () { state.current = null; state.dirty = false; refresh(); })
           .catch(function (e) { uiAlert(I18N.t('doc.delete_failed', { msg: e.message }), { title: I18N.t('doc.delete_failed_title') }); });
       });
   }
@@ -832,15 +854,26 @@
       .catch(function (e) { msg('p-msg', e.message, true); });
   }
 
-  function archiveDoc() {
-    if (!state.current) { return; }
+  // archiveDoc 归档（软删除）。传参用于列表卡片，不传则取当前打开的文档。
+  function archiveDoc(id) {
+    if (!id && state.current) { id = state.current.id; }
+    if (!id) { return; }
     uiConfirm(I18N.t('doc.archive_confirm'), { title: I18N.t('doc.archive_title'), confirmText: I18N.t('action.archive') })
       .then(function (ok) {
         if (!ok) { return; }
-        api('/api/docs/' + state.current.id + '/archive', { method: 'POST' })
+        api('/api/docs/' + id + '/archive', { method: 'POST' })
           .then(function () { state.current = null; state.dirty = false; refresh(); })
-          .catch(function (e) { msg('e-msg', e.message, true); });
+          .catch(function (e) { uiAlert(I18N.t('doc.archive_failed', { msg: e.message }), { title: I18N.t('doc.archive_title') }); });
       });
+  }
+
+  // unarchiveDoc 恢复（Archive 的逆操作）。成功后回列表，用户能看到它重新出现。
+  function unarchiveDoc(id) {
+    if (!id && state.current) { id = state.current.id; }
+    if (!id) { return; }
+    api('/api/docs/' + id + '/unarchive', { method: 'POST' })
+      .then(function () { state.current = null; state.dirty = false; refresh(); })
+      .catch(function (e) { uiAlert(I18N.t('doc.restore_failed', { msg: e.message }), { title: I18N.t('doc.restore_title') }); });
   }
 
   /* ---------- 下载 / 导出 ---------- */
@@ -1148,6 +1181,18 @@
     $('app-brand').addEventListener('click', goHome);
     $('p-edit').addEventListener('click', enterEdit);
     $('p-share').addEventListener('click', openShare);
+    $('doc-more').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var wasOpen = !$('doc-menu').hidden;
+      closeMenus();
+      $('doc-menu').hidden = wasOpen;
+    });
+    $('doc-archive').addEventListener('click', function () { closeMenus(); archiveDoc(); });
+    $('doc-restore').addEventListener('click', function () { closeMenus(); unarchiveDoc(); });
+    $('doc-delete').addEventListener('click', function () {
+      closeMenus();
+      if (state.current) { deleteDoc(state.current.id, state.current.title || state.current.id); }
+    });
     $('p-download').addEventListener('click', function (e) {
       e.stopPropagation();
       $('download-menu').hidden = !$('download-menu').hidden;
@@ -1157,7 +1202,6 @@
 
     $('e-cancel').addEventListener('click', cancelEdit);
     $('e-save').addEventListener('click', saveDoc);
-    $('e-archive').addEventListener('click', archiveDoc);
     $('share-mode').addEventListener('change', onChangeShareMode);
 
     ['e-title', 'e-category'].forEach(function (id) {
@@ -1193,13 +1237,13 @@
       var ci = e.target.closest && e.target.closest('[data-copy-input]');
       if (ci) { copyText($(ci.getAttribute('data-copy-input')).value, ci); return; }
       // 点击空白收起下载菜单 / 账号菜单
-      var menu = $('download-menu');
-      if (menu && !menu.hidden) { menu.hidden = true; }
+      closeMenus();
       toggleUserMenu(false);
     });
 
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
+        if (document.querySelector('.dropdown-menu:not([hidden])')) { closeMenus(); return; }
         if (!$('user-menu').hidden) { toggleUserMenu(false); return; }
         if (!$('modal-dialog').hidden) { closeDialog(false); return; }
         var modalIds = ['modal-mcp', 'modal-share'];

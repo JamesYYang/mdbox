@@ -185,6 +185,16 @@
             </div>
           </div>
           <button id="p-edit" class="primary" data-i18n="action.edit">编辑</button>
+          <div class="dropdown doc-more-wrap">
+            <button id="doc-more" class="ghost" data-i18n-aria="action.more_aria" aria-haspopup="menu">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+            </button>
+            <div id="doc-menu" class="dropdown-menu" hidden>
+              <button id="doc-archive" data-i18n="action.archive">归档</button>
+              <button id="doc-restore" data-i18n="action.restore" hidden>恢复</button>
+              <button id="doc-delete" class="menu-danger" data-i18n="action.delete">删除</button>
+            </div>
+          </div>
         </div>
 
         <!-- 顶部 meta：分类 / 标签 / 来源 / 更新时间 / 分享（仅预览模式） -->
@@ -202,7 +212,6 @@
           </div>
           <span class="spacer"></span>
           <span id="e-msg" class="msg"></span>
-          <button id="e-archive" class="ghost" data-i18n="action.archive">归档</button>
           <button id="e-save" class="primary" data-i18n="action.save">保存</button>
         </div>
 
