@@ -40,6 +40,7 @@
       'share.gone_on_save': '分享已失效或已关闭编辑，内容未保存。',
       'share.draft_kept': '分享已失效或无法加载，你的内容仍保留在编辑器里，请复制保存',
       'share.edit_hint': '保存后对方立即看到，无版本历史',
+      'share.archived_hint': '文档已归档，链接暂时不可访问；恢复后自动恢复。',
       'share.preview_need_login': '登录后才有实时预览',
 
       'action.theme': '切换主题',
@@ -109,7 +110,7 @@
       'doc.delete_title': '删除文档',
       'doc.delete_failed': '删除失败：{msg}',
       'doc.delete_failed_title': '删除失败',
-      'doc.archive_confirm': '归档后可在左侧「归档」中找回，确定归档？',
+      'doc.archive_confirm': '归档后可在左侧「归档」中找回；分享链接会暂时失效，恢复后自动恢复。确定归档？',
       'doc.archive_title': '归档文档',
       'doc.archive_failed': '归档失败：{msg}',
       'doc.restore_title': '恢复文档',
@@ -196,6 +197,7 @@
       'share.gone_on_save': 'This share link is invalid or editing was turned off. Nothing was saved.',
       'share.draft_kept': 'This share link no longer works, but your draft is kept in the editor — copy it before leaving',
       'share.edit_hint': 'Changes are visible immediately. No version history.',
+      'share.archived_hint': 'This document is archived, so the link is unavailable until you restore it.',
       'share.preview_need_login': 'Log in to see the live preview',
 
       'action.theme': 'Toggle theme',
@@ -265,7 +267,7 @@
       'doc.delete_title': 'Delete document',
       'doc.delete_failed': 'Delete failed: {msg}',
       'doc.delete_failed_title': 'Delete failed',
-      'doc.archive_confirm': 'Archived documents can be found later under Archive. Archive this one?',
+      'doc.archive_confirm': 'Archived documents can be found later under Archive. Any share link stops working until you restore it. Archive this one?',
       'doc.archive_title': 'Archive document',
       'doc.archive_failed': 'Archive failed: {msg}',
       'doc.restore_title': 'Restore document',

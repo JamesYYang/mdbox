@@ -1004,7 +1004,12 @@
 
   function updateShareModeHint() {
     var m = $('share-mode').value;
-    $('share-mode-hint').textContent = I18N.t(SHARE_HINTS[m] || SHARE_HINTS.off);
+    var text = I18N.t(SHARE_HINTS[m] || SHARE_HINTS.off);
+    // 归档期间链接是 404，但模式仍可改（恢复后按当前模式生效），所以只提示不阻拦。
+    if (m !== 'off' && state.current && state.current.status === 'archived') {
+      text += ' ' + I18N.t('share.archived_hint');
+    }
+    $('share-mode-hint').textContent = text;
   }
 
   function updateShareLink(mode) {
