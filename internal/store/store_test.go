@@ -2,6 +2,8 @@ package store
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -201,5 +203,75 @@ func TestOverviewIgnoresActivityOutsideWindow(t *testing.T) {
 
 	if o := st.Overview(time.Now().Add(time.Hour)); o != (Overview{}) {
 		t.Errorf("窗口外 overview = %+v, want 全 0", o)
+	}
+}
+
+// TestArchiveUnarchiveRoundTrip 归档是移到 archive/，恢复必须原样搬回 docs/，
+// 正文与标题都不能丢——这正是「误归档只能真删重写」的痛点所在。
+func TestArchiveUnarchiveRoundTrip(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "旧稿", Content: "# 旧稿\n\n正文"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if _, err := st.Archive(d.ID); err != nil {
+		t.Fatalf("归档失败: %v", err)
+	}
+
+	time.Sleep(20 * time.Millisecond)
+	got, err := st.Unarchive(d.ID)
+	if err != nil {
+		t.Fatalf("恢复失败: %v", err)
+	}
+	if got.Status != "active" {
+		t.Errorf("status = %q, want active", got.Status)
+	}
+	if got.Title != "旧稿" {
+		t.Errorf("title = %q, want 旧稿", got.Title)
+	}
+	if _, err := os.Stat(filepath.Join(st.root, "docs", d.ID+".md")); err != nil {
+		t.Errorf("docs/ 下应存在该文件: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(st.root, "archive", d.ID+".md")); !os.IsNotExist(err) {
+		t.Errorf("archive/ 下不应残留文件: err = %v", err)
+	}
+	full, err := st.Get(d.ID)
+	if err != nil {
+		t.Fatalf("读取失败: %v", err)
+	}
+	// serialize 总会给正文补一个结尾换行（Create 之后读回也带），这里按这个既有规范化比较。
+	if strings.TrimRight(full.Content, "\n") != "# 旧稿\n\n正文" {
+		t.Errorf("正文 = %q, want 原内容", full.Content)
+	}
+	active, err := st.List(ListFilter{Status: "active"})
+	if err != nil {
+		t.Fatalf("列表失败: %v", err)
+	}
+	if len(active) != 1 || active[0].ID != d.ID {
+		t.Errorf("活动列表 = %+v, want 仅 %s", active, d.ID)
+	}
+}
+
+// TestUnarchiveActiveDocIsNoop 对活动文档点「恢复」不该改任何东西，尤其不该刷新 updated。
+func TestUnarchiveActiveDocIsNoop(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "t", Content: "x"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+
+	got, err := st.Unarchive(d.ID)
+	if err != nil {
+		t.Fatalf("恢复失败: %v", err)
+	}
+	if !got.Updated.Equal(d.Updated) {
+		t.Errorf("updated 被改写: %v -> %v", d.Updated, got.Updated)
+	}
+}
+
+func TestUnarchiveUnknownID(t *testing.T) {
+	st := newTestStore(t)
+	if _, err := st.Unarchive("20260101-000000000000"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("err = %v, want ErrNotFound", err)
 	}
 }

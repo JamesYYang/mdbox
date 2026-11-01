@@ -400,6 +400,33 @@ func (s *Store) Archive(id string) (*Doc, error) {
 	return &out, nil
 }
 
+// Unarchive 把文档从 archive 移回 docs，是 Archive 的逆操作。
+func (s *Store) Unarchive(id string) (*Doc, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	e, ok := s.docs[id]
+	if !ok {
+		return nil, ErrNotFound
+	}
+	dst := filepath.Join(s.root, "docs", id+".md")
+	// 已经在活动区：不写盘、不更新 updated，保持幂等。
+	if e.Status == "active" && e.path == dst {
+		out := e.Doc
+		return &out, nil
+	}
+	content := readBody(e.path)
+	e.Status = "active"
+	e.Updated = time.Now()
+	if err := os.WriteFile(dst, []byte(serialize(&e.Doc, content)), 0o644); err != nil {
+		return nil, err
+	}
+	_ = os.Remove(e.path)
+	e.path = dst
+	out := e.Doc
+	return &out, nil
+}
+
 // SetShareMode 设置文档的分享模式（off / view / edit）。
 func (s *Store) SetShareMode(id, mode string) (*Doc, error) {
 	if !ValidShareMode(mode) {
