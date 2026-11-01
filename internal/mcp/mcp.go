@@ -129,7 +129,7 @@ func New(st *store.Store, name, version string) *server.MCPServer {
 	})
 
 	s.AddTool(mcp.NewTool("archive_doc",
-		mcp.WithDescription("Move a document to the archive (the file is not deleted). Good for outdated content"),
+		mcp.WithDescription("Move a document to the archive (the file is not deleted). Good for outdated content. Any share link stops working until the document is unarchived"),
 		mcp.WithString("id", mcp.Description("Document id"), mcp.Required()),
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		id, err := req.RequireString("id")
