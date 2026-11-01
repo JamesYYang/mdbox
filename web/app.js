@@ -831,7 +831,7 @@
     b.type = 'button';
     b.className = danger ? 'menu-danger' : '';
     b.textContent = I18N.t(key);
-    b.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    b.addEventListener('click', function (e) { e.stopPropagation(); closeMenus(); onClick(); });
     return b;
   }
 
@@ -867,12 +867,18 @@
       });
   }
 
-  // unarchiveDoc 恢复（Archive 的逆操作）。成功后回列表，用户能看到它重新出现。
+  // unarchiveDoc 恢复（Archive 的逆操作）。成功后切回活动列表，用户能看到它重新出现。
   function unarchiveDoc(id) {
     if (!id && state.current) { id = state.current.id; }
     if (!id) { return; }
     api('/api/docs/' + id + '/unarchive', { method: 'POST' })
-      .then(function () { state.current = null; state.dirty = false; refresh(); })
+      .then(function () {
+        state.current = null;
+        state.dirty = false;
+        // 恢复到活动区后切回活动列表，用户能直接看到它回到列表里。
+        state.status = 'active';
+        refresh();
+      })
       .catch(function (e) { uiAlert(I18N.t('doc.restore_failed', { msg: e.message }), { title: I18N.t('doc.restore_title') }); });
   }
 
@@ -1075,6 +1081,7 @@
   function toggleUserMenu(force) {
     var menu = $('user-menu');
     var open = (typeof force === 'boolean') ? force : menu.hidden;
+    if (open) { closeMenus(); }
     menu.hidden = !open;
     $('user-btn').setAttribute('aria-expanded', open ? 'true' : 'false');
   }
@@ -1195,7 +1202,9 @@
     });
     $('p-download').addEventListener('click', function (e) {
       e.stopPropagation();
-      $('download-menu').hidden = !$('download-menu').hidden;
+      var wasOpen = !$('download-menu').hidden;
+      closeMenus();
+      $('download-menu').hidden = wasOpen;
     });
     $('dl-md').addEventListener('click', function () { $('download-menu').hidden = true; downloadMd(); });
     $('dl-pdf').addEventListener('click', function () { $('download-menu').hidden = true; downloadPdf(); });
@@ -1243,7 +1252,7 @@
 
     window.addEventListener('keydown', function (e) {
       if (e.key === 'Escape') {
-        if (document.querySelector('.dropdown-menu:not([hidden])')) { closeMenus(); return; }
+        if (document.querySelector('.dropdown-menu:not([hidden])')) { closeMenus(); toggleUserMenu(false); return; }
         if (!$('user-menu').hidden) { toggleUserMenu(false); return; }
         if (!$('modal-dialog').hidden) { closeDialog(false); return; }
         var modalIds = ['modal-mcp', 'modal-share'];
