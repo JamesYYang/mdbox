@@ -111,7 +111,7 @@ handler 与 `archiveDoc` 同构（`internal/api/api.go:181`），错误一律 40
 | `web/index.html` | 预览栏加 `#doc-more`（⋯ + `#doc-menu`）；删除 `#e-archive` |
 | `web/app.js` | `renderList` 中 `.card-del` 换为 `.card-more` + 菜单；新增 `docMenuItems()` 决定菜单项、`openCardMenu()`、`closeMenus()`；新增 `unarchiveDoc()`；`archiveDoc` / `deleteDoc` 改为被菜单调用（`deleteDoc` 增加归档视图下的调用方）；删除 `e-archive` 监听 |
 | `web/style.css` | `.card-del` 更名 `.card-more`（含 `@media (hover:none)` 与窄屏 `display:none` 两条引用）；卡片内菜单的 `position: absolute` / `z-index` / `min-width`；菜单项 danger 色 |
-| `web/i18n.js` | 新增 5 条（中英各一） |
+| `web/i18n.js` | 新增 6 条（中英各一），含原先只写进编辑态消息栏的 `doc.archive_failed` |
 
 前端所有 DOM 仍由 `renderList` 动态生成，菜单不做抽象组件，两处各自拼装、共用同一组动作函数。
 
@@ -121,6 +121,7 @@ handler 与 `archiveDoc` 同构（`internal/api/api.go:181`），错误一律 40
 |---|---|---|
 | `action.more_aria` | 更多操作 | More actions |
 | `action.restore` | 恢复 | Restore |
+| `doc.archive_failed` | 归档失败：{msg} | Archive failed: {msg} |
 | `doc.restore_title` | 恢复文档 | Restore document |
 | `doc.restore_confirm` | 恢复到活动文档？ | Move back to active documents? |
 | `doc.restore_failed` | 恢复失败：{msg} | Restore failed: {msg} |
