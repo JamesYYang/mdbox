@@ -54,6 +54,7 @@ func (s *Server) shareDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 // sharedDoc 校验分享链接并取出文档；任何一步失败都统一按「不存在」处理。
+// 归档期间分享视为失效，恢复后自动复效。
 func (s *Server) sharedDoc(r *http.Request) (*store.Doc, bool) {
 	user, id := r.PathValue("user"), r.PathValue("id")
 	if !s.validSig(user, id, r.PathValue("token")) {
@@ -64,7 +65,7 @@ func (s *Server) sharedDoc(r *http.Request) (*store.Doc, bool) {
 		return nil, false
 	}
 	d, err := st.Get(id)
-	if err != nil || !d.Shared {
+	if err != nil || !d.Shared || d.Status == store.StatusArchived {
 		return nil, false
 	}
 	return d, true
@@ -113,6 +114,7 @@ func (s *Server) cloneShared(w http.ResponseWriter, r *http.Request) {
 
 // editableDoc 校验签名与「可编辑」状态，并返回源文档与**作者**的 store。
 // 与 sharedDoc 的区别：要求 share_mode == edit，且必须由调用方自己写盘。
+// 归档期间分享视为失效，恢复后自动复效。
 // 已知窄竞态（接受，不改结构）：模式在这里判定，st.Update 在 store 自己的锁里写盘，
 // 作者在这两步之间把分享改成 off 时这次写入仍会落盘。要强一致得把模式判定下推进 store 锁内。
 func (s *Server) editableDoc(r *http.Request) (*store.Doc, *store.Store, bool) {
@@ -125,7 +127,7 @@ func (s *Server) editableDoc(r *http.Request) (*store.Doc, *store.Store, bool) {
 		return nil, nil, false
 	}
 	d, err := st.Get(id)
-	if err != nil || d.ShareMode != store.ShareEdit {
+	if err != nil || d.Status == store.StatusArchived || d.ShareMode != store.ShareEdit {
 		return nil, nil, false
 	}
 	return d, st, true

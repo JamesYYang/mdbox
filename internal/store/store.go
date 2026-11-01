@@ -40,6 +40,9 @@ const (
 	ShareEdit = "edit"
 )
 
+// StatusArchived 为归档状态的取值；活动文档恒为 "active"。
+const StatusArchived = "archived"
+
 // ValidShareMode 判断 mode 是否属于三态取值域。
 func ValidShareMode(mode string) bool {
 	return mode == ShareOff || mode == ShareView || mode == ShareEdit
@@ -153,7 +156,7 @@ func loadFile(path string, bucket string) (*entry, error) {
 		status = "active"
 	}
 	if bucket == "archive" {
-		status = "archived"
+		status = StatusArchived
 	}
 	mode := m.Share
 	if mode == "" && m.Shared {
@@ -401,7 +404,7 @@ func (s *Store) Archive(id string) (*Doc, error) {
 	}
 	// 先写盘成功再改内存索引，写失败时索引不会与磁盘脱节。
 	doc := e.Doc
-	doc.Status = "archived"
+	doc.Status = StatusArchived
 	doc.Updated = time.Now()
 	if err := os.WriteFile(dst, []byte(serialize(&doc, stripFrontmatter(string(raw)))), 0o644); err != nil {
 		return nil, err
