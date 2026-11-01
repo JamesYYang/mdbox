@@ -415,13 +415,25 @@ func (s *Store) Unarchive(id string) (*Doc, error) {
 		out := e.Doc
 		return &out, nil
 	}
-	content := readBody(e.path)
-	e.Status = "active"
-	e.Updated = time.Now()
-	if err := os.WriteFile(dst, []byte(serialize(&e.Doc, content)), 0o644); err != nil {
+	// 显式读源文件，不用 readBody：后者吞掉读错误返回空串，源文件被外部删掉而索引陈旧时
+	// 会把空正文写进 docs/ 并返回成功，等于静默毁掉内容。
+	raw, err := os.ReadFile(e.path)
+	if err != nil {
 		return nil, err
 	}
-	_ = os.Remove(e.path)
+	// 先写盘成功再改内存索引，写失败时索引不会与磁盘脱节。
+	doc := e.Doc
+	doc.Status = "active"
+	doc.Updated = time.Now()
+	if err := os.WriteFile(dst, []byte(serialize(&doc, stripFrontmatter(string(raw)))), 0o644); err != nil {
+		return nil, err
+	}
+	// 源可能就是目标本身（文件在 docs/ 但 frontmatter 写着 archived），那种情况要就地重写，
+	// 删源会连刚写好的文件一起删掉。
+	if e.path != dst {
+		_ = os.Remove(e.path)
+	}
+	e.Doc = doc
 	e.path = dst
 	out := e.Doc
 	return &out, nil
@@ -617,7 +629,11 @@ func readBody(path string) string {
 	if err != nil {
 		return ""
 	}
-	body := string(raw)
+	return stripFrontmatter(string(raw))
+}
+
+// stripFrontmatter 去掉文件开头的 --- YAML 块，返回正文。
+func stripFrontmatter(body string) string {
 	if strings.HasPrefix(body, "---\n") {
 		if parts := strings.SplitN(body[4:], "\n---", 2); len(parts) == 2 {
 			return strings.TrimLeft(parts[1], "\n")

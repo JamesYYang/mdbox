@@ -214,6 +214,11 @@ func TestArchiveUnarchiveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("创建失败: %v", err)
 	}
+	// 归档前先取一份正文，恢复后精确比对，避免「恢复成空文件」也能过。
+	want, err := st.Get(d.ID)
+	if err != nil {
+		t.Fatalf("归档前读取失败: %v", err)
+	}
 	if _, err := st.Archive(d.ID); err != nil {
 		t.Fatalf("归档失败: %v", err)
 	}
@@ -225,6 +230,9 @@ func TestArchiveUnarchiveRoundTrip(t *testing.T) {
 	}
 	if got.Status != "active" {
 		t.Errorf("status = %q, want active", got.Status)
+	}
+	if !got.Updated.After(d.Updated) {
+		t.Errorf("updated 未前进: %v -> %v", d.Updated, got.Updated)
 	}
 	if got.Title != "旧稿" {
 		t.Errorf("title = %q, want 旧稿", got.Title)
@@ -239,9 +247,8 @@ func TestArchiveUnarchiveRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读取失败: %v", err)
 	}
-	// serialize 总会给正文补一个结尾换行（Create 之后读回也带），这里按这个既有规范化比较。
-	if strings.TrimRight(full.Content, "\n") != "# 旧稿\n\n正文" {
-		t.Errorf("正文 = %q, want 原内容", full.Content)
+	if full.Content != want.Content {
+		t.Errorf("正文 = %q, want %q", full.Content, want.Content)
 	}
 	active, err := st.List(ListFilter{Status: "active"})
 	if err != nil {
@@ -273,5 +280,74 @@ func TestUnarchiveUnknownID(t *testing.T) {
 	st := newTestStore(t)
 	if _, err := st.Unarchive("20260101-000000000000"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("err = %v, want ErrNotFound", err)
+	}
+}
+
+// TestUnarchiveDocInDocsWithArchivedFrontmatter 用户手工把文件从 archive/ 挪回 docs/ 时，
+// frontmatter 里仍是 archived，于是 path 在 docs/ 而 Status 是 archived。恢复必须就地
+// 重写成 active，不能「写到同一个路径再把刚写好的文件删掉」，那等于静默丢文档。
+func TestUnarchiveDocInDocsWithArchivedFrontmatter(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "手改稿", Content: "# 手改稿\n\n正文"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	path := filepath.Join(st.root, "docs", d.ID+".md")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("读取文件失败: %v", err)
+	}
+	edited := strings.Replace(string(raw), "status: active", "status: archived", 1)
+	if edited == string(raw) {
+		t.Fatalf("frontmatter 里没找到 status: active，原始内容:\n%s", raw)
+	}
+	if err := os.WriteFile(path, []byte(edited), 0o644); err != nil {
+		t.Fatalf("写回失败: %v", err)
+	}
+
+	// 重建仓库，让索引按磁盘内容重建：此时 path 在 docs/，Status 却是 archived。
+	st, err = New(st.root)
+	if err != nil {
+		t.Fatalf("重建仓库失败: %v", err)
+	}
+	got, err := st.Unarchive(d.ID)
+	if err != nil {
+		t.Fatalf("恢复失败: %v", err)
+	}
+	if got.Status != "active" {
+		t.Errorf("status = %q, want active", got.Status)
+	}
+	full, err := st.Get(d.ID)
+	if err != nil {
+		t.Fatalf("恢复后文件应仍然存在: %v", err)
+	}
+	if full.Title != "手改稿" {
+		t.Errorf("title = %q, want 手改稿", full.Title)
+	}
+	if !strings.Contains(full.Content, "正文") {
+		t.Errorf("正文丢失: %q", full.Content)
+	}
+}
+
+// TestUnarchiveMissingSourceFileErrors 外部删掉 archive/ 下的文件而内存索引还陈旧时，
+// 恢复不能把空正文写进 docs/ 并当成功返回——那是静默毁掉内容。
+func TestUnarchiveMissingSourceFileErrors(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "旧稿", Content: "# 旧稿\n\n正文"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if _, err := st.Archive(d.ID); err != nil {
+		t.Fatalf("归档失败: %v", err)
+	}
+	if err := os.Remove(filepath.Join(st.root, "archive", d.ID+".md")); err != nil {
+		t.Fatalf("删源文件失败: %v", err)
+	}
+
+	if _, err := st.Unarchive(d.ID); err == nil {
+		t.Fatal("源文件缺失时 Unarchive 应返回错误，实际返回 nil")
+	}
+	if _, err := os.Stat(filepath.Join(st.root, "docs", d.ID+".md")); !os.IsNotExist(err) {
+		t.Errorf("docs/ 下不应被写出空文档: err = %v", err)
 	}
 }
