@@ -578,16 +578,42 @@
       t.textContent = d.title || d.id;
       card.appendChild(t);
 
-      // 删除按钮：默认隐藏，鼠标悬停卡片时出现
-      var del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'card-del';
-      del.title = I18N.t('list.delete_title');
-      del.setAttribute('aria-label', I18N.t('list.delete_aria'));
-      del.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' +
-        '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>';
-      del.onclick = function (e) { e.stopPropagation(); deleteDoc(d.id, d.title || d.id); };
-      card.appendChild(del);
+      // 「⋯」菜单：归档/恢复 + 删除。默认隐藏，悬停卡片或键盘聚焦时出现。
+      var wrap = document.createElement('div');
+      wrap.className = 'card-actions dropdown';
+      wrap.addEventListener('click', function (e) { e.stopPropagation(); });
+
+      var more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'card-more';
+      more.title = I18N.t('action.more_aria');
+      more.setAttribute('aria-label', I18N.t('action.more_aria'));
+      more.setAttribute('aria-haspopup', 'menu');
+      more.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">' +
+        '<circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
+      wrap.appendChild(more);
+
+      var menu = document.createElement('div');
+      menu.className = 'dropdown-menu card-menu';
+      menu.hidden = true;
+      var archived = d.status === 'archived';
+      menu.appendChild(menuButton(archived ? 'action.restore' : 'action.archive', function () {
+        closeMenus();
+        if (archived) { unarchiveDoc(d.id); } else { archiveDoc(d.id); }
+      }));
+      menu.appendChild(menuButton('action.delete', function () {
+        closeMenus();
+        deleteDoc(d.id, d.title || d.id);
+      }, true));
+      wrap.appendChild(menu);
+
+      more.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wasOpen = !menu.hidden;
+        closeMenus();
+        if (!wasOpen) { menu.hidden = false; wrap.classList.add('open'); }
+      });
+      card.appendChild(wrap);
 
       if (d.tags && d.tags.length) {
         var tags = document.createElement('div');
