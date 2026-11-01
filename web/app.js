@@ -389,6 +389,8 @@
   function route() {
     var id = hashDocId();
     if (id) { openDoc(id); return; }
+    // 回到列表（首次进入或用户后退）：此时不该再认为自己有一个「可回退的文档历史」。
+    state.pushed = false;
     showContent('list');
     loadList();
   }
@@ -611,7 +613,11 @@
         e.stopPropagation();
         var wasOpen = !menu.hidden;
         closeMenus();
-        if (!wasOpen) { menu.hidden = false; wrap.classList.add('open'); }
+        if (!wasOpen) {
+          menu.hidden = false;
+          wrap.classList.add('open');
+          more.setAttribute('aria-expanded', 'true');
+        }
       });
       card.appendChild(wrap);
 
@@ -849,6 +855,8 @@
     Array.prototype.forEach.call(menus, function (m) { m.hidden = true; });
     var wraps = document.querySelectorAll('.card-actions.open');
     Array.prototype.forEach.call(wraps, function (w) { w.classList.remove('open'); });
+    var triggers = document.querySelectorAll('[aria-haspopup]');
+    Array.prototype.forEach.call(triggers, function (t) { t.setAttribute('aria-expanded', 'false'); });
   }
 
   // menuButton 生成一个菜单项，danger 为真时用红字（删除这类不可恢复的动作）。
@@ -1219,6 +1227,7 @@
       var wasOpen = !$('doc-menu').hidden;
       closeMenus();
       $('doc-menu').hidden = wasOpen;
+      $('doc-more').setAttribute('aria-expanded', wasOpen ? 'false' : 'true');
     });
     $('doc-archive').addEventListener('click', function () { closeMenus(); archiveDoc(); });
     $('doc-restore').addEventListener('click', function () { closeMenus(); unarchiveDoc(); });

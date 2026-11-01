@@ -352,6 +352,26 @@ func TestUnarchiveMissingSourceFileErrors(t *testing.T) {
 	}
 }
 
+// TestArchiveMissingSourceFileErrors 外部删掉 docs/ 下的文件而内存索引还陈旧时，
+// 归档不能把空正文写进 archive/ 并当成功返回——那是静默毁掉内容。
+func TestArchiveMissingSourceFileErrors(t *testing.T) {
+	st := newTestStore(t)
+	d, err := st.Create(CreateInput{Title: "手稿", Content: "# 手稿\n\n正文"})
+	if err != nil {
+		t.Fatalf("创建失败: %v", err)
+	}
+	if err := os.Remove(filepath.Join(st.root, "docs", d.ID+".md")); err != nil {
+		t.Fatalf("删源文件失败: %v", err)
+	}
+
+	if _, err := st.Archive(d.ID); err == nil {
+		t.Fatal("源文件缺失时 Archive 应返回错误，实际返回 nil")
+	}
+	if _, err := os.Stat(filepath.Join(st.root, "archive", d.ID+".md")); !os.IsNotExist(err) {
+		t.Errorf("archive/ 下不应被写出空文档: err = %v", err)
+	}
+}
+
 // TestArchiveIsIdempotentOnArchivedDoc 对已归档文档再归档一次（重复点归档、
 // agent 对旧 id 再调 archive_doc）时，目标 dst 就是源文件本身。旧实现「写完再删源」
 // 删掉的正是刚写好的文件，文档从磁盘上消失。归档必须幂等。

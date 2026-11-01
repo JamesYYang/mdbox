@@ -93,8 +93,6 @@
       'overview.label_archived': '归档',
       'overview.label_agent': 'Agent 写入',
       'list.shared': '已分享',
-      'list.delete_title': '删除',
-      'list.delete_aria': '删除文档',
 
       'edit.title_placeholder': '标题',
       'edit.category_placeholder': '分类',
@@ -115,7 +113,6 @@
       'doc.archive_title': '归档文档',
       'doc.archive_failed': '归档失败：{msg}',
       'doc.restore_title': '恢复文档',
-      'doc.restore_confirm': '恢复到活动文档？',
       'doc.restore_failed': '恢复失败：{msg}',
       'doc.discard_confirm': '有未保存的修改，确定放弃？',
       'doc.discard_title': '放弃修改',
@@ -252,8 +249,6 @@
       'overview.label_archived': 'Archived',
       'overview.label_agent': 'By agent',
       'list.shared': 'Shared',
-      'list.delete_title': 'Delete',
-      'list.delete_aria': 'Delete document',
 
       'edit.title_placeholder': 'Title',
       'edit.category_placeholder': 'Category',
@@ -274,7 +269,6 @@
       'doc.archive_title': 'Archive document',
       'doc.archive_failed': 'Archive failed: {msg}',
       'doc.restore_title': 'Restore document',
-      'doc.restore_confirm': 'Move back to active documents?',
       'doc.restore_failed': 'Restore failed: {msg}',
       'doc.discard_confirm': 'Discard unsaved changes?',
       'doc.discard_title': 'Discard changes',

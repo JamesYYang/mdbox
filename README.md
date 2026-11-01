@@ -13,9 +13,9 @@ Design principle: **a document is always a plain `.md` file with YAML frontmatte
   - **Bilingual UI**: English / Chinese, switchable from the top bar, the login page, and the share page; defaults to your browser language
   - **Top bar**: product name + logo, MCP access (a dialog shows **your own** token and connection config, and can reset it), light/dark theme switch, account menu with change-password and sign-out
   - **Sidebar**: categories / tags / archive, with one-click filtering
-  - **Card list**: full-text search; hovering a card reveals a delete button (permanent delete, after a confirmation)
+  - **Card list**: full-text search; hovering a card reveals a 「⋯」 menu with Archive / Delete (delete asks for confirmation)
   - **List overview**: a compact strip on the documents page shows the last 7 days — new / updated / archived / written by agents
-  - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags and archive the document
+  - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags. The 「⋯」 menu in the preview bar holds Archive / Delete
   - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
 - **Sharing**: enable sharing per document to get a **stable, deterministically signed link**, either **read-only** (anyone with the link, no sign-in) or **editable** (a signed-in visitor rewrites the body in place; title/tags/category stay unchanged). Turning it off makes the link 404 immediately. A signed-in visitor can also use **Copy to my library** to take an independent copy
 - **REST API**: login/registration, document CRUD, search, tag/category aggregation, 7-day overview, multipart upload, Markdown rendering, sharing and cloning

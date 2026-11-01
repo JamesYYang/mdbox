@@ -387,18 +387,23 @@ func (s *Store) Archive(id string) (*Doc, error) {
 	if !ok {
 		return nil, ErrNotFound
 	}
-	content := readBody(e.path)
 	dst := filepath.Join(s.root, "archive", id+".md")
 	// 已经归档过：不写盘、不更新 updated，保持幂等。
 	if e.Status == "archived" && e.path == dst {
 		out := e.Doc
 		return &out, nil
 	}
+	// 显式读源文件，不用 readBody：后者吞掉读错误返回空串，源文件被外部删掉而索引陈旧时
+	// 会把空正文写进 archive/ 并返回成功，等于静默毁掉内容。
+	raw, err := os.ReadFile(e.path)
+	if err != nil {
+		return nil, err
+	}
 	// 先写盘成功再改内存索引，写失败时索引不会与磁盘脱节。
 	doc := e.Doc
 	doc.Status = "archived"
 	doc.Updated = time.Now()
-	if err := os.WriteFile(dst, []byte(serialize(&doc, content)), 0o644); err != nil {
+	if err := os.WriteFile(dst, []byte(serialize(&doc, stripFrontmatter(string(raw)))), 0o644); err != nil {
 		return nil, err
 	}
 	// 源可能就是目标本身（文档已在 archive/），那种情况要就地重写，
