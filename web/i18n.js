@@ -47,6 +47,8 @@
       'img.alt': '图片',
       'img.uploading': '正在上传图片 {done}/{total}…',
       'img.upload_failed': '{n} 张图片上传失败',
+      'img.upload_failed_reason': '{n} 张图片上传失败：{reason}',
+      'img.uploading_wait': '图片还在上传，请稍候再保存',
 
       'action.theme': '切换主题',
       'action.mcp': 'MCP 接入',
@@ -209,6 +211,8 @@
       'img.alt': 'image',
       'img.uploading': 'Uploading image {done}/{total}…',
       'img.upload_failed': '{n} image(s) failed to upload',
+      'img.upload_failed_reason': '{n} image(s) failed: {reason}',
+      'img.uploading_wait': 'Images are still uploading — save in a moment',
 
       'action.theme': 'Toggle theme',
       'action.mcp': 'MCP access',

@@ -23,6 +23,7 @@
   var previewTimer = null;
   var shareCtx = null; // { user, id, sig, title, mode, content, editing, draft }
   var sharePreviewTimer = null;
+  var imgUploads = 0; // 进行中的图片上传队列数；保存前必须为 0，否则插入的内容会丢
 
   /* ---------- 主题 ---------- */
 
@@ -151,7 +152,10 @@
     return n || I18N.t('img.alt');
   }
 
+  // 编辑器已关掉（textarea 被 hidden 或被父级收起）时不要再写值：
+  // 上传可能在保存/取消之后才完成，写进隐藏的 textarea 会污染下一次 enterEdit 的初值。
   function insertAtCursor(ta, text) {
+    if (!ta || ta.offsetParent === null) { return; }
     var start = ta.selectionStart, end = ta.selectionEnd, v = ta.value;
     ta.value = v.slice(0, start) + text + v.slice(end);
     var pos = start + text.length;
@@ -160,14 +164,23 @@
   }
 
   // insertImages 串行上传，逐张按选择顺序插入；单张失败不中断其余。
+  // imgUploads 在队列开始时 +1、结束时 -1，保存逻辑据此拒绝在图片还没落地时提交。
   function insertImages(ta, files, msgId) {
     var list = Array.prototype.filter.call(files || [], function (f) { return /^image\//.test(f.type); });
     if (!list.length) { return; }
-    var failed = 0;
+    var failed = 0, lastErr = '';
+    imgUploads++;
     function step(i) {
       if (i >= list.length) {
-        if (failed) { msg(msgId, I18N.t('img.upload_failed', { n: failed }), true); }
-        else { msg(msgId, ''); }
+        imgUploads--;
+        // 只失败一张时直接说原因（服务端已本地化，如「图片过大，单张上限 5MB」），
+        // 多张失败时给数量 + 最后一条原因。
+        if (failed === 1 && lastErr) { msg(msgId, lastErr, true); }
+        else if (failed) {
+          msg(msgId, lastErr
+            ? I18N.t('img.upload_failed_reason', { n: failed, reason: lastErr })
+            : I18N.t('img.upload_failed', { n: failed }), true);
+        } else { msg(msgId, ''); }
         return;
       }
       var f = list[i];
@@ -177,8 +190,9 @@
       api('/api/assets', { method: 'POST', body: fd }).then(function (d) {
         insertAtCursor(ta, '![' + altOf(f) + '](' + d.url + ')\n');
         step(i + 1);
-      }).catch(function () {
+      }).catch(function (e) {
         failed++;
+        lastErr = (e && e.message) || '';
         step(i + 1);
       });
     }
@@ -908,6 +922,8 @@
 
   function saveDoc() {
     if (!state.current) { return Promise.resolve(); }
+    // 图片还在上传时保存会把未落地的图片一起丢掉（保存后回到预览态，插入也就无处可去）。
+    if (imgUploads > 0) { msg('e-msg', I18N.t('img.uploading_wait'), true); return Promise.resolve(); }
     var id = state.current.id;
     commitPendingTag(); // 输入框里没按回车的那一段也要存
     var body = JSON.stringify({
@@ -1539,6 +1555,7 @@
 
   function saveShareEdit() {
     if (!shareCtx) { return; }
+    if (imgUploads > 0) { msg('share-msg', I18N.t('img.uploading_wait'), true); return; }
     var content = $('share-source').value;
     fetch(shareApi(), {
       method: 'PUT',
