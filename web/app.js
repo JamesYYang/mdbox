@@ -132,6 +132,79 @@
     if (text) { setTimeout(function () { if (el.textContent === text) { el.textContent = ''; } }, 2600); }
   }
 
+  /* ---------- 图片：粘贴 / 拖拽 / 选择后上传，按光标位置插入 ---------- */
+
+  // clipboardImages 取剪贴板里的图片文件；Chrome/Firefox 走 files，Safari 走 items。
+  function clipboardImages(e) {
+    var dt = e.clipboardData;
+    if (!dt) { return []; }
+    if (dt.files && dt.files.length) { return Array.prototype.slice.call(dt.files); }
+    var out = [];
+    Array.prototype.forEach.call(dt.items || [], function (it) {
+      if (it.kind === 'file') { var f = it.getAsFile(); if (f) { out.push(f); } }
+    });
+    return out;
+  }
+
+  function altOf(f) {
+    var n = (f.name || '').replace(/\.[^.]+$/, '').replace(/[\[\]]/g, ' ').trim();
+    return n || I18N.t('img.alt');
+  }
+
+  function insertAtCursor(ta, text) {
+    var start = ta.selectionStart, end = ta.selectionEnd, v = ta.value;
+    ta.value = v.slice(0, start) + text + v.slice(end);
+    var pos = start + text.length;
+    ta.setSelectionRange(pos, pos);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // insertImages 串行上传，逐张按选择顺序插入；单张失败不中断其余。
+  function insertImages(ta, files, msgId) {
+    var list = Array.prototype.filter.call(files || [], function (f) { return /^image\//.test(f.type); });
+    if (!list.length) { return; }
+    var failed = 0;
+    function step(i) {
+      if (i >= list.length) {
+        if (failed) { msg(msgId, I18N.t('img.upload_failed', { n: failed }), true); }
+        else { msg(msgId, ''); }
+        return;
+      }
+      var f = list[i];
+      msg(msgId, I18N.t('img.uploading', { done: i + 1, total: list.length }));
+      var fd = new FormData();
+      fd.append('file', f, f.name || 'image');
+      api('/api/assets', { method: 'POST', body: fd }).then(function (d) {
+        insertAtCursor(ta, '![' + altOf(f) + '](' + d.url + ')\n');
+        step(i + 1);
+      }).catch(function () {
+        failed++;
+        step(i + 1);
+      });
+    }
+    step(0);
+  }
+
+  // bindImageInput 给一个 textarea 接上粘贴与拖拽；按钮单独绑。
+  function bindImageInput(ta, msgId) {
+    ta.addEventListener('paste', function (e) {
+      var files = clipboardImages(e);
+      if (!files.length) { return; }
+      e.preventDefault();
+      insertImages(ta, files, msgId);
+    });
+    ta.addEventListener('dragover', function (e) {
+      if (e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) {
+        e.preventDefault();
+      }
+    });
+    ta.addEventListener('drop', function (e) {
+      if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) { return; }
+      e.preventDefault();
+      insertImages(ta, e.dataTransfer.files, msgId);
+    });
+  }
+
   // 紧凑时间（列表卡片与详情页 meta）：同年 MM-DD HH:MM，跨年 YYYY-MM-DD。
   function fmtShortTime(s) {
     if (!s) { return ''; }
@@ -1251,6 +1324,12 @@
 
     $('e-cancel').addEventListener('click', cancelEdit);
     $('e-save').addEventListener('click', saveDoc);
+    bindImageInput($('d-source'), 'e-msg');
+    $('e-img').addEventListener('click', function () { $('e-img-file').click(); });
+    $('e-img-file').addEventListener('change', function () {
+      insertImages($('d-source'), this.files, 'e-msg');
+      this.value = '';
+    });
     $('share-mode').addEventListener('change', onChangeShareMode);
 
     ['e-title', 'e-category'].forEach(function (id) {
@@ -1502,6 +1581,12 @@
     $('share-edit').addEventListener('click', enterShareEdit);
     $('share-edit-save').addEventListener('click', saveShareEdit);
     $('share-edit-cancel').addEventListener('click', cancelShareEdit);
+    bindImageInput($('share-source'), 'share-msg');
+    $('share-img').addEventListener('click', function () { $('share-img-file').click(); });
+    $('share-img-file').addEventListener('change', function () {
+      insertImages($('share-source'), this.files, 'share-msg');
+      this.value = '';
+    });
     $('share-source').addEventListener('input', function () {
       var v = this.value;
       clearTimeout(sharePreviewTimer);

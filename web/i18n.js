@@ -43,6 +43,11 @@
       'share.archived_hint': '文档已归档，链接暂时不可访问；恢复后自动恢复。',
       'share.preview_need_login': '登录后才有实时预览',
 
+      'img.insert': '插入图片',
+      'img.alt': '图片',
+      'img.uploading': '正在上传图片 {done}/{total}…',
+      'img.upload_failed': '{n} 张图片上传失败',
+
       'action.theme': '切换主题',
       'action.mcp': 'MCP 接入',
       'action.account': '账号',
@@ -199,6 +204,11 @@
       'share.edit_hint': 'Changes are visible immediately. No version history.',
       'share.archived_hint': 'This document is archived, so the link is unavailable until you restore it.',
       'share.preview_need_login': 'Log in to see the live preview',
+
+      'img.insert': 'Insert image',
+      'img.alt': 'image',
+      'img.uploading': 'Uploading image {done}/{total}…',
+      'img.upload_failed': '{n} image(s) failed to upload',
 
       'action.theme': 'Toggle theme',
       'action.mcp': 'MCP access',
