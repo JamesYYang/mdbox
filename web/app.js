@@ -214,7 +214,13 @@
     });
     ta.addEventListener('drop', function (e) {
       if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) { return; }
+      // 只有拖进来的文件里有图片才由编辑器接管；否则放行，交给全局监听器按文档上传。
+      var hasImage = Array.prototype.some.call(e.dataTransfer.files, function (f) {
+        return /^image\//.test((f && f.type) || '');
+      });
+      if (!hasImage) { return; }
       e.preventDefault();
+      e.stopPropagation();
       insertImages(ta, e.dataTransfer.files, msgId);
     });
   }
