@@ -56,9 +56,9 @@ func storeErrStatus(err error) int {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
 		return http.StatusNotFound
-	case errors.Is(err, store.ErrNotText):
+	case errors.Is(err, store.ErrNotText), errors.Is(err, store.ErrUnsupportedImage):
 		return http.StatusUnsupportedMediaType
-	case errors.Is(err, store.ErrDocTooLarge), errors.Is(err, store.ErrQuotaExceeded):
+	case errors.Is(err, store.ErrDocTooLarge), errors.Is(err, store.ErrQuotaExceeded), errors.Is(err, store.ErrImageTooLarge):
 		return http.StatusRequestEntityTooLarge
 	}
 	return http.StatusInternalServerError

@@ -74,6 +74,7 @@ func New(reg *users.Registry, cfg *config.Config, sessions *auth.Sessions) http.
 	mux.HandleFunc("GET /api/categories", s.categories)
 	mux.HandleFunc("POST /api/upload", s.upload)
 	mux.HandleFunc("POST /api/preview", s.preview)
+	mux.HandleFunc("POST /api/assets", s.uploadAsset)
 	return s.withAuth(mux)
 }
 
