@@ -107,6 +107,8 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
+	// 图片：匿名读取（分享页要能显示），不经过 /api/ 的登录校验。
+	mux.Handle("GET /a/", api.AssetHandler(reg))
 	mux.Handle("/", staticFiles(webRoot))
 
 	srv := &http.Server{Addr: *addr, Handler: securityHeaders(limitBody(mux))}

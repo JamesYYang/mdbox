@@ -103,3 +103,55 @@ func TestUploadAssetRejectsOversized(t *testing.T) {
 		t.Fatalf("状态码 = %d, want 413; body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestAssetHandlerServesAnonymously(t *testing.T) {
+	reg, h, _ := newTestServer(t)
+	alice, err := reg.Register("alice", "password123")
+	if err != nil {
+		t.Fatalf("注册: %v", err)
+	}
+	rec := postAsset(t, h, alice.Token, pngHeader, "shot.png")
+	var up struct {
+		URL  string `json:"url"`
+		Name string `json:"name"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &up); err != nil {
+		t.Fatalf("解析上传响应: %v", err)
+	}
+
+	// 故意不带任何 cookie / token：分享页是匿名访客。
+	req := httptest.NewRequest(http.MethodGet, up.URL, nil)
+	got := httptest.NewRecorder()
+	AssetHandler(reg).ServeHTTP(got, req)
+
+	if got.Code != http.StatusOK {
+		t.Fatalf("状态码 = %d, want 200", got.Code)
+	}
+	if ct := got.Header().Get("Content-Type"); ct != "image/png" {
+		t.Fatalf("Content-Type = %q, want image/png", ct)
+	}
+	if cc := got.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
+		t.Fatalf("Cache-Control = %q, want immutable", cc)
+	}
+}
+
+func TestAssetHandlerNotFound(t *testing.T) {
+	reg, _, _ := newTestServer(t)
+	if _, err := reg.Register("alice", "password123"); err != nil {
+		t.Fatalf("注册: %v", err)
+	}
+	ah := AssetHandler(reg)
+	for _, p := range []string{
+		"/a/alice/" + strings.Repeat("a", 32) + ".png", // 格式对但文件不存在
+		"/a/alice/notahash.png",
+		"/a/bob/" + strings.Repeat("a", 32) + ".png", // 用户不存在
+		"/a/alice/",
+		"/a/alice/../x.png",
+	} {
+		rec := httptest.NewRecorder()
+		ah.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, p, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s 状态码 = %d, want 404", p, rec.Code)
+		}
+	}
+}

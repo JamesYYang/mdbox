@@ -123,3 +123,13 @@ func TestMarkdownKeepsSafeMarkup(t *testing.T) {
 		}
 	}
 }
+
+func TestMarkdownKeepsSiteImage(t *testing.T) {
+	out, err := Markdown("![shot](/a/alice/0123456789abcdef0123456789abcdef.png)\n")
+	if err != nil {
+		t.Fatalf("渲染失败: %v", err)
+	}
+	if !strings.Contains(out, `src="/a/alice/0123456789abcdef0123456789abcdef.png"`) {
+		t.Fatalf("本站图片被剥掉了: %q", out)
+	}
+}
