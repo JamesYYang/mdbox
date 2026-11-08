@@ -4,7 +4,11 @@ package mcp
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -14,8 +18,9 @@ import (
 	"mdbox/internal/store"
 )
 
-// New 构建 MCP server，名字与版本会体现在握手响应里。
-func New(st *store.Store, name, version string) *server.MCPServer {
+// New 构建 MCP server。user 用于拼图片地址；allowPath 为 true 时（stdio 模式）
+// 允许 upload_image 直接读本机文件，HTTP 模式下必须用 base64。
+func New(st *store.Store, name, version, user string, allowPath bool) *server.MCPServer {
 	s := server.NewMCPServer(name, version)
 
 	s.AddTool(mcp.NewTool("list_docs",
@@ -156,6 +161,24 @@ func New(st *store.Store, name, version string) *server.MCPServer {
 		return toolJSON(map[string]any{"id": id, "message": "Unarchived"})
 	})
 
+	s.AddTool(mcp.NewTool("upload_image",
+		mcp.WithDescription("Store an image and return a Markdown snippet to embed it. Use data_base64 (a data URI prefix is fine) or, over stdio only, source_path pointing at a local file. Max 5 MB; PNG/JPEG/GIF/WebP only"),
+		mcp.WithString("data_base64", mcp.Description("Base64-encoded image bytes")),
+		mcp.WithString("source_path", mcp.Description("Local file path (stdio transport only)")),
+	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		data, err := imageBytes(req.GetString("source_path", ""), req.GetString("data_base64", ""), allowPath)
+		if err != nil {
+			return toolErr(err)
+		}
+		name, size, err := st.SaveImage(data)
+		if err != nil {
+			return toolErr(err)
+		}
+		url := "/a/" + user + "/" + name
+		snippet := "![image](" + url + ")"
+		return mcp.NewToolResultText(fmt.Sprintf("%s\n%s\n(%d bytes)", snippet, url, size)), nil
+	})
+
 	return s
 }
 
@@ -188,4 +211,27 @@ func splitTags(s string) []string {
 		}
 	}
 	return out
+}
+
+// imageBytes 解析 upload_image 的两种入参：source_path（仅 stdio）或 data_base64。
+func imageBytes(srcPath, b64 string, allowPath bool) ([]byte, error) {
+	switch {
+	case srcPath != "" && b64 != "":
+		return nil, errors.New("provide either source_path or data_base64, not both")
+	case srcPath != "":
+		if !allowPath {
+			return nil, errors.New("source_path is only available over stdio; use data_base64 for HTTP")
+		}
+		return os.ReadFile(srcPath)
+	case b64 != "":
+		if i := strings.Index(b64, ","); strings.HasPrefix(b64, "data:") && i > 0 {
+			b64 = b64[i+1:] // 容忍 data:image/png;base64, 前缀
+		}
+		data, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return nil, errors.New("data_base64 is not valid base64")
+		}
+		return data, nil
+	}
+	return nil, errors.New("provide data_base64 (or source_path over stdio)")
 }

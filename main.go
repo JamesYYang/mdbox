@@ -60,7 +60,7 @@ func main() {
 		log.Fatalf("加载用户表失败: %v", err)
 	}
 
-	mcps := &mcpServers{reg: reg, m: map[string]*server.MCPServer{}}
+	mcps := &mcpServers{reg: reg, m: map[string]*server.MCPServer{}, allowPath: *stdioMode}
 
 	if *stdioMode {
 		if *stdioUser == "" {
@@ -170,9 +170,10 @@ func securityHeaders(next http.Handler) http.Handler {
 
 // mcpServers 按用户缓存 MCP server：每个 server 只绑定该用户自己的文档仓库。
 type mcpServers struct {
-	reg *users.Registry
-	mu  sync.Mutex
-	m   map[string]*server.MCPServer
+	reg       *users.Registry
+	mu        sync.Mutex
+	m         map[string]*server.MCPServer
+	allowPath bool // stdio 模式允许 upload_image 读本机文件
 }
 
 func (c *mcpServers) get(name string) (*server.MCPServer, error) {
@@ -185,7 +186,7 @@ func (c *mcpServers) get(name string) (*server.MCPServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := mcpsrv.New(st, "mdbox", version)
+	s := mcpsrv.New(st, "mdbox", version, name, c.allowPath)
 	c.m[name] = s
 	return s, nil
 }
