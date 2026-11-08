@@ -17,9 +17,10 @@
   - **列表概览**：文档页顶部一条统计条，展示近 7 天的新增 / 更新 / 归档 / Agent 写入
   - **阅读与编辑**：默认**只读预览**，点「编辑」进入左源码右实时预览的双栏模式，可改标题/分类/标签；预览栏的「⋯」菜单里是归档 / 删除
   - **上传 / 下载**：拖拽或选择多个 `.md`；预览模式下可下载 Markdown 或**导出 PDF**
+  - **图片**：编辑器支持粘贴、拖拽与「插入图片」，插入 `![alt](/a/<user>/<name>)`；图片按内容寻址存在 `assets/`，由 `/a/` 匿名读取并长缓存，计入 200MB 每用户配额（单张 5MB，仅 PNG / JPEG / GIF / WebP）
 - **分享**：每篇文档可手动开启分享，生成**固定算法的稳定链接**，分**只读**（任何人凭链接免登录查看）与**可编辑**（已登录的访问者在分享页就地改写正文，标题/标签/分类不变）两种；关闭后链接立刻 404。登录用户还可「复制到我的库」，把文档复制一份到自己库里
 - **REST API**：登录/注册、文档 CRUD、搜索、标签/分类聚合、近 7 天概览、multipart 上传、Markdown 渲染、分享与 clone
-- **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc` `unarchive_doc`，支持 HTTP（Streamable）与 stdio 两种传输
+- **MCP Server**：`list_docs` `search_docs` `read_doc` `write_doc` `update_doc` `list_tags` `archive_doc` `unarchive_doc` `upload_image`，支持 HTTP（Streamable）与 stdio 两种传输
 - **鉴权**：Web 用登录会话（Cookie），agent/脚本用**每个用户各自的 token**，两者都只能访问该用户自己的文档
 - **git 自动备份**：数据目录本身是 git 仓库，定时提交并推送远端
 - **零前端依赖**：预览渲染在服务端（goldmark），不依赖任何 CDN；唯一打包的第三方 JS 是本地内置的 html2pdf（用于 PDF 导出）
@@ -121,6 +122,8 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 | POST | `/api/clone/{user}/{id}/{token}` | **需登录**：把已分享文档复制到自己的库（只带标题 + 正文，`source=clone`） |
 | GET | `/api/tags` · `/api/categories` | 标签 / 分类聚合 |
 | POST | `/api/upload` | multipart 上传多个 .md（仅 UTF-8 文本，单篇 ≤2MB） |
+| POST | `/api/assets` | 上传一张图片（multipart `file`，单张 ≤5MB，仅 PNG / JPEG / GIF / WebP），返回 `{url, name, bytes}` |
+| GET | `/a/{user}/{name}` | **匿名**读取图片，`Cache-Control: immutable` 长缓存；名字不合法或不存在一律 404 |
 | POST | `/api/preview` | `{content}` → `{html}` |
 | POST | `/mcp` | MCP Streamable HTTP 端点（仅用户 token，只暴露该用户自己的文档） |
 
@@ -128,11 +131,12 @@ stdio 模式（本机 agent 直连，无需令牌，用 `-user` 指定为哪个�
 
 ```
 data/users/<username>/
-├── docs/*.md      活跃文档
-└── archive/*.md   已归档文档
+├── docs/*.md              活跃文档
+├── archive/*.md           已归档文档
+└── assets/<hash>.<ext>    正文引用的图片
 ```
 
-每个用户一个目录，整个 `data/` 仍是一个 git 仓库，备份方式不变。
+每个用户一个目录，整个 `data/` 仍是一个 git 仓库，备份方式不变（图片与文档一起提交）。
 
 初始化远端并加入 crontab：
 
@@ -168,5 +172,6 @@ scripts/git-backup.sh  数据目录 git 自动备份
 - 多用户只做到「文档隔离」：没有角色/权限、不做多人共编（跨用户写入仅限作者主动签发的 edit 链接）、没有找回密码流程（修改密码需校验旧密码；忘记密码只能人工处理）
 - 预览渲染允许内联 HTML（`WithUnsafe`），但输出会经白名单清洗（bluemonday UGC）：`<script>`、内联事件属性、`<iframe>`、`javascript:` 链接等一律剔除，`<details>`、`<br>`、表格这类安全 HTML 保留
 - 归档是软删除；**删除则是真删**，不可恢复
-- 写入有上限：正文必须是 UTF-8 文本（把二进制改名成 `.md` 会被拒，回 415），单篇 2MB、每人 200MB（归档也算）、单次请求 32MB；阈值是 `internal/store/store.go` 里的常量，改完记得同步 i18n 文案
+- 写入有上限：正文必须是 UTF-8 文本（把二进制改名成 `.md` 会被拒，回 415），单篇 2MB、每人 200MB（归档与图片都算）、单次请求 32MB；阈值是 `internal/store/store.go` 里的常量，改完记得同步 i18n 文案
+- 图片按内容寻址且不做回收：删文档或改写正文都不会删掉 `assets/` 里的图片，长期占用配额。图片地址指向本站，导出 `.md` 后离线看不到图；关闭分享也不会收回图片访问权
 - PDF 由浏览器端 html2pdf 把整页截成图片再切片分页，超长代码块或超大表格仍可能有分页瑕疵

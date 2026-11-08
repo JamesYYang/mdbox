@@ -152,6 +152,12 @@ mdbox 以**公开在线服务**形态提供：`www.mdbox.tech` 由作者托管�
 | V4-5 | **分享后可编辑（clone）** | 分享页提供「复制到我的库」：已登录用户可把**已分享**的文档复制一份到自己的库（只带标题 + 正文，`source=clone`，不带标签/分类），源文档不受影响。刻意只做**单向拷贝**，不做多人共编（v0.5 的 edit 分享见 §2.3）；场景是「接手别人的文档接着写新篇」 |
 | V4-6 | **列表页产出概览**（v0.4.2） | 列表页搜索栏下方一行：`近 7 天 · 新增 5 · 更新 3 · 归档 2 · Agent 写入 4`。滚动 7 天窗口；全 0 隐藏；中英双语。只做聚合计数，不做 streak / 图表 / 热力图 |
 
+**v0.6 图片**
+
+| 编号 | 功能 | 说明 |
+|---|---|---|
+| V6-1 | **图片库**（v0.6） | 正文可直接引用本站图片：编辑器粘贴 / 拖拽 / 按钮上传，MCP 由 `upload_image` 插入。图片按内容寻址存于 `data/users/<user>/assets/`，经 `/a/<user>/<hash>.<ext>` 匿名读取并长缓存；计入 200 MB 总配额，单张上限 5 MB，只收 PNG / JPEG / GIF / WebP（SVG 拒收）。不做压缩、图库管理页与孤儿图回收 |
+
 > 原 P1（下一阶段）与 P2（探索期）功能规划已移除，后续功能方向待重新评估。
 
 ---
@@ -186,6 +192,7 @@ mdbox 以**公开在线服务**形态提供：`www.mdbox.tech` 由作者托管�
             │              ├ 元数据索引（内存，启动时全量重建）
             │              ├ 登录会话（内存）+ 分享签名（HMAC）
 存储层   data/users/<username>/docs/*.md + frontmatter ← git 自动备份到远端
+         data/users/<username>/assets/<hash>.<ext>   图片（/a/ 匿名读取，不经过 withAuth）
 用户表   users.yaml（data/ 之外）：用户名 / 密码哈希 / 每用户 token
 配置     config.yaml：分享 secret / allow_register（无预置账号，首个用户自助注册）
 ```
@@ -213,6 +220,8 @@ updated: 2026-10-01T00:00:00+08:00
 
 归档会暂时让分享链接失效（统一 404，与「关闭分享」对访客无区别）；恢复文档后同一链接自动复效，分享模式保持归档前的取值。
 
+图片与文档并列存放：`data/users/<username>/assets/<sha256 前 16 字节 hex>.<png|jpg|gif|webp>`。文件名由内容哈希而来，正文用 `![alt](/a/<user>/<文件名>)` 引用；图片**不写入 frontmatter**，也不参与列表与搜索。同一内容重复上传得到同一文件名、只占一份配额；单张上限 5 MB，与文档共用 200 MB 每用户配额；只接受 PNG / JPEG / GIF / WebP，其余（含 SVG）拒收。不做压缩、不做图库管理，删除文档不会删图（孤儿图不回收）。
+
 ### 6.3 REST API
 
 | 方法 | 路径 | 说明 |
@@ -236,6 +245,8 @@ updated: 2026-10-01T00:00:00+08:00
 | PUT | `/api/share/{user}/{id}/{token}` | `{content}` → `{doc, html}`。**需登录**，仅 `share_mode=edit` 时可用；未登录 401，非 edit / 签名错 404，超 2 MB 413，非 UTF-8 或含 NUL 415。仅改正文，标题 / 标签 / 分类不变；写入计入作者配额 |
 | GET | `/api/tags` · `/api/categories` | 聚合 |
 | POST | `/api/upload` | multipart 多文件上传 |
+| POST | `/api/assets` | 上传一张图片（multipart `file`），返回 `{url, name, bytes}`；需登录，单张 ≤5 MB，仅 PNG / JPEG / GIF / WebP |
+| GET | `/a/{user}/{name}` | **匿名**读取图片（分享页也要显示），`Cache-Control: immutable` 长缓存；名字不合法或不存在一律 404 |
 | POST | `/api/preview` | Markdown → HTML |
 
 `/s/{user}/{id}/{token}` 返回分享页 HTML（前端按路径进入分享模式；`view` 只读，`edit` 多一个「编辑」按钮，就地进入双栏编辑，保存后回到只读视图）。
@@ -244,7 +255,9 @@ updated: 2026-10-01T00:00:00+08:00
 
 ### 6.4 MCP 工具
 
-`list_docs` · `search_docs` · `read_doc` · `write_doc` · `update_doc` · `list_tags` · `archive_doc` · `unarchive_doc`
+`list_docs` · `search_docs` · `read_doc` · `write_doc` · `update_doc` · `list_tags` · `archive_doc` · `unarchive_doc` · `upload_image`
+
+`upload_image` 存图并返回可嵌入正文的 Markdown 片段（`![image](/a/<user>/<hash>.<ext>)`）：HTTP 传 `data_base64`（容忍 data URI 前缀），stdio 还可传 `source_path` 读本机文件；大小与格式限制同 `POST /api/assets`。
 
 接入方式（HTTP，token 是你自己账号的，见 Web「MCP 接入」；每个 token 只能访问其所属用户的文档）：
 
@@ -339,7 +352,7 @@ updated: 2026-10-01T00:00:00+08:00
 2. **可扩展性天花板**：内存索引 + 内存会话 + 单副本，横向扩容会让不同副本看到不同状态；文档规模上限约 1 万篇。要服务大量用户，必须先做**会话外部化**与**索引持久化**，当前架构只适合早期小规模。
 3. **需求真实性仍未验证**：核心假设（用户确实会因过期清理而归档废稿）尚未被真实用户数据证实。若观察期发现真痛点不成立，应控制投入而非继续扩张。
 4. **付费点偏薄**：存储是 Git 免费给的、AI 是用户自己的 agent、编辑器是开源库，可收费的只有"归档与保鲜体验"这一层，能否支撑付费尚未验证。
-5. **数据不锁定是双刃剑**：利于获客（信任），不利于留存（迁移成本极低）。
+5. **数据不锁定是双刃剑**：利于获客（信任），不利于留存（迁移成本极低）。图片也有同一面：正文里存的是本站地址（`/a/...`），`.md` 导出到本地或换站后图片裂开，不做「导出含图 zip」。
 6. **命名与 SEO**：Markdoc 已被 Stripe 的开源文档框架占用（markdoc.dev / markdoc.io），如需对外，品牌名需要重新考虑。
 7. **精力分配**：作者同时维护 SellingPilot 与 SmartRouter 两个产品，第三项目标存在明显机会成本。建议将 mdbox 定位为 SmartRouter 的延伸能力/杀手级示例，而非独立产品线。
 8. **归档会中断已发出去的外部链接（对外静默）**：归档语义是「这篇内容不该再被主动消费」，访客侧直接 404；Web UI 在归档前告知，agent 侧的提示写在 `archive_doc` 工具描述里，恢复即复效。
@@ -385,5 +398,6 @@ updated: 2026-10-01T00:00:00+08:00
 | v0.4.1 | 2026-10-19 | 文档与实现对齐：新增 V4-5（分享页 clone）、旅程 F；非目标中的「不做改密码」修正为「不做密码找回」（V3-4 已交付改密）；§6.1 删除已不存在的「初始账号」；版本号同步为 0.4.1 |
 | v0.4.2 | 2026-10-19 | 列表页新增「近 7 天」产出概览（V4-6）：新增 / 更新 / 归档 / Agent 写入，全 0 隐藏；新增 `GET /api/overview`。口径：更新不重复计新增，归档取 `updated`，Agent 为 `source` 不属于 web/manual/upload/clone 的新增 |
 | v0.5 | 2026-10-24 | 分享三态 + 可编辑链接：`shared` 布尔改为 `share`（`off` / `view` / `edit`），`shared` 保留为派生值；`POST /api/docs/{id}/share` 改收 `{mode}`；新增需登录的 `PUT /api/share/{user}/{id}/{token}`，仅 `edit` 可用，写入原作者（文档所有者）的 store 并复用 `store.Update`。这是对 v0.4「不做多人共编」结论的**有意修正**，边界限定为单篇、整篇覆盖、无历史、无冲突检测、无审计、无白名单、无匿名写 |
+| v0.6 | 2026-11-08 | 图片库（V6-1）：正文可插入图片——编辑器粘贴 / 拖拽 / 「插入图片」，MCP 新增 `upload_image`（HTTP 用 `data_base64`，stdio 可用 `source_path`）。图片按内容寻址存于 `data/users/<user>/assets/`，经 `POST /api/assets` 入库、`GET /a/{user}/{name}` **匿名**长缓存读取（该路由不经过 `withAuth`，分享页需要）。配额口径从「文档总量」扩为「文档 + 图片」（200 MB 不变），单张 5 MB，仅 PNG / JPEG / GIF / WebP（SVG 拒收）。不做压缩、图库页与孤儿图回收 |
 
 > 2026-10-19：原 P1（下一阶段）与 P2（探索期）功能规划已移除，后续功能方向待重新评估。

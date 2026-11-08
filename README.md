@@ -17,9 +17,10 @@ Design principle: **a document is always a plain `.md` file with YAML frontmatte
   - **List overview**: a compact strip on the documents page shows the last 7 days — new / updated / archived / written by agents
   - **Reading & editing**: read-only preview by default; click Edit for a two-pane source + live-preview editor where you can change the title/category/tags. The 「⋯」 menu in the preview bar holds Archive / Delete
   - **Upload / download**: drag or pick multiple `.md` files; from preview you can download Markdown or **export PDF**
+  - **Images**: paste, drag-drop or 「Insert image」 in the editor inserts `![alt](/a/<user>/<name>)`; images are content-addressed under `assets/`, read anonymously from `/a/` with long-lived caching, and count toward the 200 MB per-user quota (5 MB each, PNG / JPEG / GIF / WebP only)
 - **Sharing**: enable sharing per document to get a **stable, deterministically signed link**, either **read-only** (anyone with the link, no sign-in) or **editable** (a signed-in visitor rewrites the body in place; title/tags/category stay unchanged). Turning it off makes the link 404 immediately. A signed-in visitor can also use **Copy to my library** to take an independent copy
 - **REST API**: login/registration, document CRUD, search, tag/category aggregation, 7-day overview, multipart upload, Markdown rendering, sharing and cloning
-- **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, `unarchive_doc`, over HTTP (Streamable) or stdio
+- **MCP server**: `list_docs`, `search_docs`, `read_doc`, `write_doc`, `update_doc`, `list_tags`, `archive_doc`, `unarchive_doc`, `upload_image`, over HTTP (Streamable) or stdio
 - **Auth**: the web app uses a login session (cookie); agents/scripts use a **per-user token**; either way, only that user's own documents are reachable
 - **Automatic git backup**: the data directory is itself a git repository, committed and pushed on a schedule
 - **Zero frontend dependencies**: preview is rendered server-side (goldmark) with no CDN; the only bundled third-party JS is a local copy of html2pdf (for PDF export)
@@ -121,6 +122,8 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 | POST | `/api/clone/{user}/{id}/{token}` | **Signed-in** copy of a shared document into your own library (title + body only, `source=clone`) |
 | GET | `/api/tags` · `/api/categories` | Tag / category aggregation |
 | POST | `/api/upload` | Multipart upload of multiple .md files (UTF-8 text only, ≤2 MB each) |
+| POST | `/api/assets` | Upload one image (multipart `file`, ≤5 MB, PNG / JPEG / GIF / WebP); returns `{url, name, bytes}` |
+| GET | `/a/{user}/{name}` | **Anonymous** image bytes with `Cache-Control: immutable`; 404 for malformed or unknown names |
 | POST | `/api/preview` | `{content}` → `{html}` |
 | POST | `/mcp` | MCP Streamable HTTP endpoint (user token only; exposes only that user's own documents) |
 
@@ -128,11 +131,12 @@ stdio mode (local agents connect directly; no token, and `-user` picks which reg
 
 ```
 data/users/<username>/
-├── docs/*.md      active documents
-└── archive/*.md   archived documents
+├── docs/*.md              active documents
+├── archive/*.md           archived documents
+└── assets/<hash>.<ext>    images referenced from documents
 ```
 
-Each user gets a directory; the whole `data/` is still a git repository, so the backup story is unchanged.
+Each user gets a directory; the whole `data/` is still a git repository, so the backup story is unchanged (images are committed along with documents).
 
 Initialize the remote and add a crontab entry:
 
@@ -168,5 +172,6 @@ scripts/git-backup.sh  scheduled git backup of the data directory
 - Multi-user stops at "document isolation": no roles/permissions, no multi-person co-editing (cross-user writes happen only through edit links the author explicitly issues), no password-recovery flow (changing a password requires the old one; a forgotten password must be handled by hand).
 - Preview rendering permits inline HTML (`WithUnsafe`), but the output goes through a whitelist sanitizer (bluemonday UGC): `<script>`, inline event handlers, `<iframe>` and `javascript:` links are stripped, while safe HTML such as `<details>`, `<br>` and tables is kept.
 - Archiving is a soft delete; **deleting is permanent** and cannot be undone.
-- Writes are bounded: the body must be UTF-8 text (a binary renamed to `.md` is rejected with 415), max 2 MB per document, 200 MB per user (archived files included) and 32 MB per request. The thresholds are constants in `internal/store/store.go`.
+- Writes are bounded: the body must be UTF-8 text (a binary renamed to `.md` is rejected with 415), max 2 MB per document, 200 MB per user (archived files and images included) and 32 MB per request. The thresholds are constants in `internal/store/store.go`.
+- Images are content-addressed and never garbage-collected: deleting a document or rewriting its body leaves the image in `assets/` and still counted against the quota. Their URLs point at this site, so an exported `.md` loses its images, and unsharing a document does not revoke image access.
 - PDF export uses client-side html2pdf to snapshot the page into images and slice them into pages; very long code blocks or huge tables can still paginate imperfectly.
