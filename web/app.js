@@ -111,6 +111,7 @@
     opts = opts || {};
     var init = { method: opts.method || 'GET' };
     if (opts.body) { init.body = opts.body; }
+    if (opts.signal) { init.signal = opts.signal; }
     init.headers = opts.headers || {};
     init.headers['Accept-Language'] = I18N.lang();
     return fetch(path, init).then(function (res) {
@@ -165,10 +166,12 @@
 
   // insertImages 串行上传，逐张按选择顺序插入；单张失败不中断其余。
   // imgUploads 在队列开始时 +1、结束时 -1，保存逻辑据此拒绝在图片还没落地时提交。
-  function insertImages(ta, files, msgId) {
+  // onStart 可选：队列开始前调用一次，分享页用它在可能触发登录跳转前把正文存起来。
+  function insertImages(ta, files, msgId, onStart) {
     var list = Array.prototype.filter.call(files || [], function (f) { return /^image\//.test(f.type); });
     if (!list.length) { return; }
     var failed = 0, lastErr = '';
+    if (onStart) { onStart(); }
     imgUploads++;
     function step(i) {
       if (i >= list.length) {
@@ -187,25 +190,31 @@
       msg(msgId, I18N.t('img.uploading', { done: i + 1, total: list.length }));
       var fd = new FormData();
       fd.append('file', f, f.name || 'image');
-      api('/api/assets', { method: 'POST', body: fd }).then(function (d) {
+      // 单张 60 秒超时：半开连接会让 promise 永远 pending，imgUploads 不归零就再也存不了档。
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 60000);
+      api('/api/assets', { method: 'POST', body: fd, signal: ctrl.signal }).then(function (d) {
+        clearTimeout(timer);
         insertAtCursor(ta, '![' + altOf(f) + '](' + d.url + ')\n');
         step(i + 1);
       }).catch(function (e) {
+        clearTimeout(timer);
         failed++;
-        lastErr = (e && e.message) || '';
+        // 中止给的是浏览器自带的英文报错，不外露；交给队列结束时的「N 张失败」文案。
+        lastErr = (e && e.name === 'AbortError') ? '' : ((e && e.message) || '');
         step(i + 1);
       });
     }
     step(0);
   }
 
-  // bindImageInput 给一个 textarea 接上粘贴与拖拽；按钮单独绑。
-  function bindImageInput(ta, msgId) {
+  // bindImageInput 给一个 textarea 接上粘贴与拖拽；按钮单独绑。onStart 原样转给 insertImages。
+  function bindImageInput(ta, msgId, onStart) {
     ta.addEventListener('paste', function (e) {
       var files = clipboardImages(e);
       if (!files.length) { return; }
       e.preventDefault();
-      insertImages(ta, files, msgId);
+      insertImages(ta, files, msgId, onStart);
     });
     ta.addEventListener('dragover', function (e) {
       if (e.dataTransfer && e.dataTransfer.types && Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0) {
@@ -221,7 +230,7 @@
       if (!hasImage) { return; }
       e.preventDefault();
       e.stopPropagation();
-      insertImages(ta, e.dataTransfer.files, msgId);
+      insertImages(ta, e.dataTransfer.files, msgId, onStart);
     });
   }
 
@@ -1625,10 +1634,15 @@
     $('share-edit').addEventListener('click', enterShareEdit);
     $('share-edit-save').addEventListener('click', saveShareEdit);
     $('share-edit-cancel').addEventListener('click', cancelShareEdit);
-    bindImageInput($('share-source'), 'share-msg');
+    // 上传若因 401 触发 showLogin，resetSession 会清掉编辑器；先把正文存进 shareCtx.draft，
+    // 回来时 setupShare 靠它重新进入编辑态（与 saveShareEdit 的处理一致）。
+    var stashDraft = function () {
+      if (shareCtx) { shareCtx.draft = $('share-source').value; }
+    };
+    bindImageInput($('share-source'), 'share-msg', stashDraft);
     $('share-img').addEventListener('click', function () { $('share-img-file').click(); });
     $('share-img-file').addEventListener('change', function () {
-      insertImages($('share-source'), this.files, 'share-msg');
+      insertImages($('share-source'), this.files, 'share-msg', stashDraft);
       this.value = '';
     });
     $('share-source').addEventListener('input', function () {

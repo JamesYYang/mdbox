@@ -249,7 +249,7 @@ updated: 2026-10-01T00:00:00+08:00
 | GET | `/a/{user}/{name}` | **匿名**读取图片（分享页也要显示），`Cache-Control: immutable` 长缓存；名字不合法或不存在一律 404 |
 | POST | `/api/preview` | Markdown → HTML |
 
-`/s/{user}/{id}/{token}` 返回分享页 HTML（前端按路径进入分享模式；`view` 只读，`edit` 多一个「编辑」按钮，就地进入双栏编辑，保存后回到只读视图）。
+`/s/{user}/{id}/{token}` 返回分享页 HTML（前端按路径进入分享模式；`view` 只读，`edit` 多一个「编辑」按钮，就地进入双栏编辑，保存后回到只读视图）。正文写回作者的文档、计入作者配额；但在分享页插入的图片走 `POST /api/assets`，存进**编辑者**自己的 `assets/` 并占用编辑者配额。
 
 匿名豁免只覆盖 **GET** + `/api/share/` 路径前缀：`PUT /api/share/...` 必须带登录会话或 token。
 

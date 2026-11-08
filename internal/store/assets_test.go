@@ -37,6 +37,34 @@ func TestSaveImageDedupesIdenticalContent(t *testing.T) {
 	}
 }
 
+// 索引还在但磁盘文件没了（被误删 / 只写了一半）：同一份内容再传一次应把文件补回来，
+// 而不是继续返回一个打不开的名字。
+func TestSaveImageRepairsMissingFile(t *testing.T) {
+	st, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	name, _, err := st.SaveImage(pngBytes)
+	if err != nil {
+		t.Fatalf("第一次 SaveImage: %v", err)
+	}
+	if err := os.Remove(filepath.Join(st.Root(), "assets", name)); err != nil {
+		t.Fatalf("删除图片文件: %v", err)
+	}
+	again, size, err := st.SaveImage(pngBytes)
+	if err != nil {
+		t.Fatalf("修复后 SaveImage: %v", err)
+	}
+	if again != name || size != int64(len(pngBytes)) {
+		t.Fatalf("修复后应返回同一文件名: %q/%d, want %q/%d", again, size, name, len(pngBytes))
+	}
+	f, _, err := st.OpenImage(name)
+	if err != nil {
+		t.Fatalf("修复后 OpenImage: %v", err)
+	}
+	_ = f.Close()
+}
+
 func TestSaveImageRejectsOversized(t *testing.T) {
 	st, err := New(t.TempDir())
 	if err != nil {

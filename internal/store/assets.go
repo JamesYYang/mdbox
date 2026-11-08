@@ -61,7 +61,12 @@ func (s *Store) SaveImage(data []byte) (string, int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if n, ok := s.assets[name]; ok {
-		return name, n, nil
+		// 索引可能指向已被删掉或只写了一半的旧文件（没有 GC，也没有删除入口），
+		// 只有磁盘上文件还在、大小一致才复用；否则丢掉索引往下重写一遍（自愈）。
+		if fi, err := os.Stat(filepath.Join(s.root, "assets", name)); err == nil && fi.Size() == int64(len(data)) {
+			return name, n, nil
+		}
+		delete(s.assets, name)
 	}
 	if s.usedBytes()+int64(len(data)) > s.quota {
 		return "", 0, ErrQuotaExceeded
