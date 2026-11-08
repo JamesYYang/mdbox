@@ -1046,6 +1046,24 @@
     return pdfLibPromise;
   }
 
+  // waitImages 等容器内的图片加载完再交给 html2canvas，否则本地图会导出成空白。
+  // 用超时兜底，避免某张图挂住整个导出。
+  function waitImages(root, timeoutMs) {
+    var imgs = Array.prototype.slice.call(root.querySelectorAll('img'));
+    if (!imgs.length) { return Promise.resolve(); }
+    var pending = imgs.map(function (img) {
+      if (img.complete) { return Promise.resolve(); }
+      return new Promise(function (resolve) {
+        img.addEventListener('load', resolve, { once: true });
+        img.addEventListener('error', resolve, { once: true });
+      });
+    });
+    return Promise.race([
+      Promise.all(pending),
+      new Promise(function (resolve) { setTimeout(resolve, timeoutMs || 5000); })
+    ]);
+  }
+
   // exportPdf 把某个渲染元素的 HTML 导出为 PDF，返回一个 Promise。
   function exportPdf(el, title) {
     return loadPdfLib().then(function () {
@@ -1058,19 +1076,22 @@
       function cleanup() {
         if (wrap.parentNode) { wrap.parentNode.removeChild(wrap); }
       }
-      return window.html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename: name + '.pdf',
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        // 避免整块内容被分页拦腰切断：css 模式读 break-inside，
-        // legacy 模式按下列选择器把元素整体推到下一页。
-        pagebreak: {
-          mode: ['css', 'legacy'],
-          avoid: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'pre', 'tr', 'img']
-        }
-      }).from(wrap).save().then(cleanup, function (e) { cleanup(); throw e; });
+      // 图片是本站 /a/ 地址，html2canvas 抓画布前必须先加载完。
+      return waitImages(wrap, 5000).then(function () {
+        return window.html2pdf().set({
+          margin: [10, 10, 10, 10],
+          filename: name + '.pdf',
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          // 避免整块内容被分页拦腰切断：css 模式读 break-inside，
+          // legacy 模式按下列选择器把元素整体推到下一页。
+          pagebreak: {
+            mode: ['css', 'legacy'],
+            avoid: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote', 'pre', 'tr', 'img']
+          }
+        }).from(wrap).save();
+      }).then(cleanup, function (e) { cleanup(); throw e; });
     });
   }
 
