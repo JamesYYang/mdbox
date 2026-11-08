@@ -30,7 +30,7 @@ import (
 // 改动时记得同步 internal/i18n 里 KeyDocTooLarge / KeyQuotaExceeded 的文案。
 const (
 	MaxDocBytes  = 2 << 20   // 单篇正文上限 2 MiB
-	MaxUserBytes = 200 << 20 // 单用户总量上限 200 MiB（含归档）
+	MaxUserBytes = 200 << 20 // 单用户总量上限 200 MiB（含归档与图片）
 )
 
 // 分享模式三态。Shared 是它的派生视图（ShareMode != ShareOff）。
@@ -96,16 +96,17 @@ type entry struct {
 
 // Store 是文档仓库。索引常驻内存，启动时从磁盘全量重建。
 type Store struct {
-	root  string
-	quota int64 // 单用户总量上限（字节），默认 MaxUserBytes
-	mu    sync.RWMutex
-	docs  map[string]*entry
+	root   string
+	quota  int64 // 单用户总量上限（字节），默认 MaxUserBytes
+	mu     sync.RWMutex
+	docs   map[string]*entry
+	assets map[string]int64 // 图片文件名 -> 字节数
 }
 
 // New 打开（必要时创建）一个文档仓库。
 func New(root string) (*Store, error) {
-	s := &Store{root: root, quota: MaxUserBytes, docs: map[string]*entry{}}
-	for _, d := range []string{"docs", "archive"} {
+	s := &Store{root: root, quota: MaxUserBytes, docs: map[string]*entry{}, assets: map[string]int64{}}
+	for _, d := range []string{"docs", "archive", "assets"} {
 		if err := os.MkdirAll(filepath.Join(root, d), 0o755); err != nil {
 			return nil, err
 		}
@@ -132,6 +133,18 @@ func (s *Store) reload() error {
 		}
 	}
 	s.docs = next
+	nextAssets := map[string]int64{}
+	files, _ := filepath.Glob(filepath.Join(s.root, "assets", "*"))
+	for _, f := range files {
+		name := filepath.Base(f)
+		if !assetNameRe.MatchString(name) {
+			continue // 跳过 tmp-* 等非最终文件
+		}
+		if fi, err := os.Stat(f); err == nil {
+			nextAssets[name] = fi.Size()
+		}
+	}
+	s.assets = nextAssets
 	return nil
 }
 
@@ -244,11 +257,14 @@ func checkContent(content string) error {
 	return nil
 }
 
-// usedBytes 返回该用户已占用的正文总量（含归档文档，它们同样占磁盘）。调用方须持锁。
+// usedBytes 返回该用户已占用的总量（文档 + 归档 + 图片）。调用方须持锁。
 func (s *Store) usedBytes() int64 {
 	var total int64
 	for _, e := range s.docs {
 		total += int64(e.Size)
+	}
+	for _, n := range s.assets {
+		total += n
 	}
 	return total
 }

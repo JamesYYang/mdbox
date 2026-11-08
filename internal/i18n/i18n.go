@@ -38,6 +38,8 @@ const (
 	KeyDocTooLarge       Key = "doc.too_large"
 	KeyQuotaExceeded     Key = "doc.quota_exceeded"
 	KeyNotText           Key = "doc.not_text"
+	KeyImageTooLarge     Key = "image.too_large"
+	KeyUnsupportedImage  Key = "image.unsupported"
 )
 
 var catalog = map[Lang]map[Key]string{
@@ -59,8 +61,10 @@ var catalog = map[Lang]map[Key]string{
 		KeyUserPasswordWrong: "Current password is incorrect",
 		KeyDocNotFound:       "Document not found",
 		KeyDocTooLarge:       "Document is too large (2 MB limit per document)",
-		KeyQuotaExceeded:     "Storage quota reached (200 MB per user) — archive or delete some documents first",
+		KeyQuotaExceeded:     "Storage quota reached (200 MB per user, documents and images) — delete or archive something first",
 		KeyNotText:           "Only UTF-8 text files are supported",
+		KeyImageTooLarge:     "Image is too large (5 MB limit per image)",
+		KeyUnsupportedImage:  "Only PNG, JPEG, GIF and WebP images are supported",
 	},
 	ZH: {
 		KeyUnauthorized:      "需要登录",
@@ -80,8 +84,10 @@ var catalog = map[Lang]map[Key]string{
 		KeyUserPasswordWrong: "旧密码不正确",
 		KeyDocNotFound:       "文档不存在",
 		KeyDocTooLarge:       "文档过大，单篇上限 2MB",
-		KeyQuotaExceeded:     "存储配额已满（每人 200MB），请先归档或删除旧文档",
+		KeyQuotaExceeded:     "存储配额已满（每人 200MB，含文档与图片），请先删除或归档一些内容",
 		KeyNotText:           "只支持 UTF-8 文本文件",
+		KeyImageTooLarge:     "图片过大，单张上限 5MB",
+		KeyUnsupportedImage:  "只支持 PNG、JPEG、GIF、WebP 图片",
 	},
 }
 
